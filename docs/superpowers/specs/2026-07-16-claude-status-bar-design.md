@@ -229,3 +229,37 @@ TokenBundle (Keychain only)
 5. **Premium-model key naming** (opus/sonnet/fable/…) changes over time — adapter
    surfaces whatever the API returns; label dynamically.
 6. **Unsigned Keychain re-prompt after updates** — accepted trade-off for v1.
+
+## 12. Plan 2 carry-forward (from Plan 1 final review)
+
+Design decisions Plan 2 (the SwiftUI app) must make deliberately — surfaced by
+the whole-branch review of the Core engine:
+
+1. **Importing Claude Code's token can log the user out of Claude Code.** The
+   "import from Claude Code" path reuses CC's OAuth lineage (same public
+   client_id). If Anthropic rotates refresh tokens single-use, a refresh
+   triggered by this app invalidates the token Claude Code still holds → the
+   user's real `claude` CLI session gets logged out. Low risk for the on-demand
+   CLI (in-memory, refresh only near expiry); **real risk for the continuously
+   polling app.** Plan 2 must choose: (a) give the app its **own** browser OAuth
+   grant instead of piggy-backing the imported CC token, or (b) never
+   *proactively* refresh an imported token (only reactively on 401), or (c)
+   accept + document the trade-off. Recommendation: (a) — import is a
+   convenience; treat it as a one-time seed and immediately run the app's own
+   OAuth so the two token lineages don't collide.
+2. **`TokenResponse.refresh_token` / `expires_in` should be optional.** RFC 6749
+   §5.1 permits a refresh response to omit `refresh_token` (keep the old one).
+   Currently non-optional → a missing field decodes as `.decoding` → false
+   forced re-login. Make them optional in Plan 2 (fall back to existing refresh
+   token; default a sane `expires_in`).
+3. **HTTP response headers must be read case-insensitively.** `HTTPResponse.headers`
+   preserves server casing. When Plan 2 consumes `Retry-After` /
+   `anthropic-ratelimit-unified-*` to populate `AccountStatus.rateLimited(retryAt:)`
+   (which `SyncScheduler.nextInterval` already honors), it must lowercase keys at
+   ingestion or do case-insensitive lookup, or 429 backoff timing silently breaks.
+4. **Deferred Minor test-coverage / polish items** (triaged Plan-2 in the final
+   review): pin form-encoding edge cases; test OAuth host-order + both-hosts-fail;
+   test `.malformed` import path + 403/`.server`/decode branches of UsageAPIClient;
+   strengthen `maxUtilization` test so it fails if `weekPremium` is dropped;
+   multi-word model-name title-casing in `UsageAdapter.label`; distinct CLI exit
+   codes; `Backoff` empty-`steps` guard.

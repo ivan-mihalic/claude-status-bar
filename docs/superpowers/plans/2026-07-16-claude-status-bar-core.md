@@ -20,6 +20,36 @@
 - Bundle id / keychain service base: `cz.mihalic.claude-status-bar`.
 - TDD: every unit gets a failing test first. Reproduce bugs with a failing test before fixing (repo rule).
 
+### TESTING ADDENDUM (environment reality — binding for every task)
+
+This machine has **no Xcode.app** (only CommandLineTools), so **XCTest is unavailable**. A swift.org toolchain (Swift 6.3.3) is installed and wrapped on PATH. Therefore:
+
+- **Run tests with the toolchain wrapper.** At the start of every shell that builds/tests:
+  ```bash
+  export PATH="$HOME/.swiftly/bin:$PATH"   # routes `swift` to swift-6.3.3-RELEASE (has swift-testing + macOS SDK: CryptoKit/Security/Observation all work)
+  swift --version                          # must print: Apple Swift version 6.3.3 (swift-6.3.3-RELEASE)
+  swift test --filter <Name>
+  ```
+- **Use swift-testing, NOT XCTest.** The test code shown inside each task is written in XCTest **as a behavioral spec** — the assertions and behaviors it asserts are binding; the XCTest *syntax* is not. Implement the same assertions in swift-testing. Conversion is deterministic:
+
+  | XCTest (spec) | swift-testing (write this) |
+  |---|---|
+  | `import XCTest` | `import Testing` |
+  | `final class FooTests: XCTestCase { func test_x() {...} }` | top-level `@Test func x() {...}` (a `struct FooTests { @Test ... }` suite is fine too) |
+  | `func test_x() async throws` | `@Test func x() async throws` (async/throws native) |
+  | `XCTAssertEqual(a, b)` | `#expect(a == b)` |
+  | `XCTAssertTrue(c)` / `XCTAssertFalse(c)` | `#expect(c)` / `#expect(!c)` |
+  | `XCTAssertNil(o)` / `XCTAssertNotNil(o)` | `#expect(o == nil)` / `#expect(o != nil)` |
+  | `let v = try XCTUnwrap(o)` | `let v = try #require(o)` |
+  | `XCTAssertThrowsError(try f()) { XCTAssertEqual($0 as? E, .x) }` | `#expect(throws: E.x) { try f() }` (or `#expect { try f() } throws: { ($0 as? E) == .x }`) |
+  | async throwing assertion | `await #expect(throws: E.self) { try await f() }` — drop the custom `XCTAssertThrowsErrorAsync` helper; it is not needed |
+  | `try XCTSkipUnless(cond)` | gate the test: `@Test(.enabled(if: ProcessInfo.processInfo.environment["RUN_KEYCHAIN_TESTS"] == "1")) func ...` |
+  | `XCTFail("msg")` | `Issue.record("msg")` |
+  | `Bundle.module.url(forResource:…, subdirectory: "Fixtures")` | unchanged — `Bundle.module` works the same for the test target |
+
+- **Fixtures resource:** any test target declaring `resources: [.copy("Fixtures")]` MUST have the `Tests/ClaudeStatusBarCoreTests/Fixtures/` directory exist in git. Until a task adds real fixture files there, commit a tracked `Tests/ClaudeStatusBarCoreTests/Fixtures/.gitkeep` so a fresh clone builds.
+- RED/GREEN evidence uses `swift test` output from the toolchain wrapper (swift-testing prints `✔ Test … passed` / `✘ … failed`).
+
 ---
 
 ## File Structure
@@ -287,7 +317,9 @@ public struct PKCE: Equatable {
 
     public static func generate() -> PKCE {
         var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        // Fail loudly rather than silently returning a predictable (zeroed) verifier.
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
         let verifier = Base64URL.encode(Data(bytes)) // 43 chars, url-safe
         return PKCE(verifier: verifier, challenge: challenge(for: verifier))
     }
@@ -1886,7 +1918,9 @@ public struct AccountSyncEngine {
     }
 
     public func syncOnce(accountID: UUID) async -> SyncOutcome {
-        guard let loaded = try? tokenStore.load(accountID), let bundle0 = loaded else {
+        // `try?` flattens the Optional (load returns TokenBundle?), so this is a
+        // single bind, not a double unwrap. nil covers both "missing" and "store threw".
+        guard let bundle0 = try? tokenStore.load(accountID) else {
             return .needsReauth
         }
         // Proactive refresh if near expiry.
@@ -2422,8 +2456,8 @@ struct UsageCLI {
         let imported: ImportedAccount
         do { imported = try importer.import() }
         catch {
-            FileHandle.standardError.write(Data(
-                "Could not import Claude Code account: \(error)\n".utf8))
+            FileHandle.standardError.write(Data(Redaction.redact(
+                "Could not import Claude Code account: \(error)\n").utf8))
             exit(1)
         }
 
