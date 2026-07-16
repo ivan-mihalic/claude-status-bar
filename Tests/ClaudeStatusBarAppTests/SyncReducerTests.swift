@@ -34,3 +34,28 @@ private func snap(_ s: Double) -> UsageSnapshot {
     #expect(out.account.status == .needsReauth)
     #expect(out.consecutiveRateLimits == 0)
 }
+@Test func reduce_offline_keepsSnapshotAndResetsCounter() {
+    let account = Account(id: UUID(), label: "a@x", accountUuid: nil, syncInterval: 300,
+                           status: .never, lastSnapshot: snap(50), lastSyncedAt: nil)
+    let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 4),
+                                 outcome: .offline, now: Date(timeIntervalSince1970: 0), backoff: .usage)
+    #expect(out.account.status == .offline)
+    #expect(out.account.lastSnapshot?.session.utilization == 50)
+    #expect(out.consecutiveRateLimits == 0)
+}
+@Test func reduce_failed_setsOfflineAndKeepsSnapshot() {
+    let account = Account(id: UUID(), label: "a@x", accountUuid: nil, syncInterval: 300,
+                           status: .never, lastSnapshot: snap(50), lastSyncedAt: nil)
+    let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 4),
+                                 outcome: .failed("decoding"), now: Date(timeIntervalSince1970: 0), backoff: .usage)
+    #expect(out.account.status == .offline)
+    #expect(out.account.lastSnapshot?.session.utilization == 50)
+}
+@Test func reduce_rateLimited_keepsSnapshot() {
+    let account = Account(id: UUID(), label: "a@x", accountUuid: nil, syncInterval: 300,
+                           status: .never, lastSnapshot: snap(50), lastSyncedAt: nil)
+    let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 0),
+                                 outcome: .rateLimited, now: Date(timeIntervalSince1970: 1000), backoff: .usage)
+    #expect(out.account.lastSnapshot?.session.utilization == 50)
+    #expect(out.consecutiveRateLimits == 1)
+}
