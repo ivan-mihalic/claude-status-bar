@@ -22,6 +22,10 @@ let package = Package(
             dependencies: ["ClaudeStatusBarCore", "TestSupport"],
             resources: [.copy("Fixtures")]
         ),
-        .testTarget(name: "ClaudeStatusBarAppTests", dependencies: ["ClaudeStatusBarApp", "ClaudeStatusBarCore", "TestSupport"]),
+        .testTarget(
+            name: "ClaudeStatusBarAppTests",
+            dependencies: ["ClaudeStatusBarApp", "ClaudeStatusBarCore", "TestSupport"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )
