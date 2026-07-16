@@ -190,7 +190,8 @@ git commit -m "feat(core): tolerate missing refresh_token/expires_in; title-case
 Add to `products`: `.library(name: "ClaudeStatusBarApp", targets: ["ClaudeStatusBarApp"])`. Add targets:
 ```swift
         .target(name: "ClaudeStatusBarApp", dependencies: ["ClaudeStatusBarCore"]),
-        .testTarget(name: "ClaudeStatusBarAppTests", dependencies: ["ClaudeStatusBarApp"]),
+        .testTarget(name: "ClaudeStatusBarAppTests",
+                    dependencies: ["ClaudeStatusBarApp", "ClaudeStatusBarCore"]),
 ```
 
 - [ ] **Step 2: Failing test**
