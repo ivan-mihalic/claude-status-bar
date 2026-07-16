@@ -3,7 +3,7 @@ import Foundation
 import CryptoKit
 import Security
 
-public struct PKCE: Equatable {
+public struct PKCE: Equatable, Sendable {
     public let verifier: String
     public let challenge: String
 
