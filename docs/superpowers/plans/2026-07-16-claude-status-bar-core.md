@@ -1918,7 +1918,9 @@ public struct AccountSyncEngine {
     }
 
     public func syncOnce(accountID: UUID) async -> SyncOutcome {
-        guard let loaded = try? tokenStore.load(accountID), let bundle0 = loaded else {
+        // `try?` flattens the Optional (load returns TokenBundle?), so this is a
+        // single bind, not a double unwrap. nil covers both "missing" and "store threw".
+        guard let bundle0 = try? tokenStore.load(accountID) else {
             return .needsReauth
         }
         // Proactive refresh if near expiry.
