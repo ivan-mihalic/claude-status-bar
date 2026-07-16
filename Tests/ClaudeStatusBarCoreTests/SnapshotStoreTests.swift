@@ -21,3 +21,24 @@ import Foundation
     #expect(!raw.lowercased().contains("accesstoken"))
     #expect(!raw.contains("sk-ant-"))
 }
+
+@Test func roundtrip_populatedDatesAndRateLimitedStatus() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("csb-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = SnapshotStore(fileURL: tmp)
+
+    let reset = Date(timeIntervalSince1970: 1_700_000_000)
+    let fetched = Date(timeIntervalSince1970: 1_700_000_500)
+    let retry = Date(timeIntervalSince1970: 1_700_000_900)
+    let win = UsageWindow(key: "five_hour", label: "Session", utilization: 42.0, resetsAt: reset)
+    let weekAll = UsageWindow(key: "seven_day", label: "Week (all)", utilization: 10.0, resetsAt: reset)
+    let premium = UsageWindow(key: "seven_day_fable", label: "Week (Fable)", utilization: 5.0, resetsAt: reset)
+    let snap = UsageSnapshot(session: win, weekAll: weekAll, weekPremium: [premium], fetchedAt: fetched)
+    let acct = Account(id: UUID(), label: "u@example.com", accountUuid: "uuid",
+                       syncInterval: 300, status: .rateLimited(retryAt: retry),
+                       lastSnapshot: snap, lastSyncedAt: fetched)
+
+    try store.save([acct])
+    #expect(try store.load() == [acct])
+}
