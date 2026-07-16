@@ -22,3 +22,29 @@ import Foundation
     let scope = try #require(q["scope"])
     #expect(scope.contains("user:profile"))
 }
+
+@Test func exchangeRequest_isFormURLEncodedPOST() throws {
+    let req = OAuthRequests.exchange(
+        tokenURL: URL(string: "https://platform.claude.com/v1/oauth/token")!,
+        config: .claudeCode, code: "CODE", verifier: "VER", state: "ST")
+    #expect(req.httpMethod == "POST")
+    #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+    let bodyData = try #require(req.httpBody)
+    let body = try #require(String(data: bodyData, encoding: .utf8))
+    #expect(body.contains("grant_type=authorization_code"))
+    #expect(body.contains("code=CODE"))
+    #expect(body.contains("code_verifier=VER"))
+    #expect(body.contains("state=ST"))
+    #expect(body.contains("client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e"))
+}
+
+@Test func refreshRequest_hasGrantTypeRefresh() throws {
+    let req = OAuthRequests.refresh(
+        tokenURL: URL(string: "https://platform.claude.com/v1/oauth/token")!,
+        config: .claudeCode, refreshToken: "RT")
+    let bodyData = try #require(req.httpBody)
+    let body = try #require(String(data: bodyData, encoding: .utf8))
+    #expect(body.contains("grant_type=refresh_token"))
+    #expect(body.contains("refresh_token=RT"))
+    #expect(body.contains("client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e"))
+}
