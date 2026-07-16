@@ -2456,8 +2456,8 @@ struct UsageCLI {
         let imported: ImportedAccount
         do { imported = try importer.import() }
         catch {
-            FileHandle.standardError.write(Data(
-                "Could not import Claude Code account: \(error)\n".utf8))
+            FileHandle.standardError.write(Data(Redaction.redact(
+                "Could not import Claude Code account: \(error)\n").utf8))
             exit(1)
         }
 
