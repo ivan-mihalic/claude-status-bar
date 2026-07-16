@@ -1199,7 +1199,7 @@ git commit -m "feat(app): add-account (paste-code OAuth) + settings views"
 **Files:**
 - Create: `project.yml`
 - Create: `App/Info.plist`
-- Create: `Sources/ClaudeStatusBar/ClaudeStatusBarMain.swift`
+- Create: `App/ClaudeStatusBarMain.swift`
 
 **Interfaces:**
 - Produces a buildable `.app`. `project.yml` defines app target `ClaudeStatusBar` (macOS 14, LSUIElement), local-package dependency on `ClaudeStatusBarApp`, bundle id `cz.mihalic.claude-status-bar`. `ClaudeStatusBarMain.swift` = `@main` with `MenuBarExtra` (label = indicator), a `Window("Dashboard", id: "dashboard")`, a `Window("Add Account", id: "add-account")`, and `Settings`.
@@ -1221,7 +1221,7 @@ targets:
   ClaudeStatusBar:
     type: application
     platform: macOS
-    sources: [Sources/ClaudeStatusBar]
+    sources: [App/ClaudeStatusBarMain.swift]
     info:
       path: App/Info.plist
       properties:
@@ -1254,7 +1254,7 @@ targets:
 - [ ] **Step 3: Write `@main`**
 
 ```swift
-// Sources/ClaudeStatusBar/ClaudeStatusBarMain.swift
+// App/ClaudeStatusBarMain.swift
 import SwiftUI
 import ClaudeStatusBarApp
 
@@ -1294,7 +1294,7 @@ Expected: `** BUILD SUCCEEDED **`. Also add `ClaudeStatusBar.xcodeproj/` to `.gi
 
 ```bash
 echo "ClaudeStatusBar.xcodeproj/" >> .gitignore
-git add project.yml App/Info.plist Sources/ClaudeStatusBar/ClaudeStatusBarMain.swift .gitignore
+git add project.yml App/Info.plist App/ClaudeStatusBarMain.swift .gitignore
 git commit -m "feat(app): XcodeGen project + @main MenuBarExtra app skeleton"
 ```
 
