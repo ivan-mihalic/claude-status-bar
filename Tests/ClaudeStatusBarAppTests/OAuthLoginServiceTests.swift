@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import ClaudeStatusBarApp
 @testable import ClaudeStatusBarCore
-@testable import ClaudeStatusBarCoreTests
+import TestSupport
 
 final class SpyBrowser: BrowserOpener, @unchecked Sendable {
     var opened: [URL] = []

@@ -12,15 +12,16 @@ let package = Package(
     targets: [
         .target(name: "ClaudeStatusBarCore"),
         .target(name: "ClaudeStatusBarApp", dependencies: ["ClaudeStatusBarCore"]),
+        .target(name: "TestSupport", dependencies: ["ClaudeStatusBarCore"]),
         .executableTarget(
             name: "usage-cli",
             dependencies: ["ClaudeStatusBarCore"]
         ),
         .testTarget(
             name: "ClaudeStatusBarCoreTests",
-            dependencies: ["ClaudeStatusBarCore"],
+            dependencies: ["ClaudeStatusBarCore", "TestSupport"],
             resources: [.copy("Fixtures")]
         ),
-        .testTarget(name: "ClaudeStatusBarAppTests", dependencies: ["ClaudeStatusBarApp", "ClaudeStatusBarCore", "ClaudeStatusBarCoreTests"]),
+        .testTarget(name: "ClaudeStatusBarAppTests", dependencies: ["ClaudeStatusBarApp", "ClaudeStatusBarCore", "TestSupport"]),
     ]
 )

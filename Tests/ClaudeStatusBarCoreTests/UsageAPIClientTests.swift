@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import ClaudeStatusBarCore
+import TestSupport
 
 private func body(_ name: String) throws -> Data {
     let url = try #require(Bundle.module.url(forResource: name, withExtension: "json",
