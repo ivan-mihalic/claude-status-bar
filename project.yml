@@ -1,0 +1,29 @@
+name: ClaudeStatusBar
+options:
+  bundleIdPrefix: cz.mihalic
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  ClaudeStatusBar:
+    path: .
+targets:
+  ClaudeStatusBar:
+    type: application
+    platform: macOS
+    sources: [App/ClaudeStatusBarMain.swift]
+    info:
+      path: App/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.mihalic.claude-status-bar
+        MARKETING_VERSION: "0.1.0"
+        CODE_SIGN_IDENTITY: "-"          # ad-hoc (unsigned) for local runs
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+    dependencies:
+      - package: ClaudeStatusBar
+        product: ClaudeStatusBarApp
