@@ -23,7 +23,7 @@ targets:
         CFBundleName: Claude Status Bar
         LSMinimumSystemVersion: "14.0"
         SUFeedURL: https://ivan-mihalic.github.io/claude-status-bar/appcast.xml
-        SUPublicEDKey: REPLACE_WITH_PUBLIC_KEY_FROM_TASK_3
+        SUPublicEDKey: KIF2NWclTrWrrOPT3o2PH9pk14FjkUj8OBeyyF7kGXY=
         SUEnableInstallerLauncherService: true
     settings:
       base:

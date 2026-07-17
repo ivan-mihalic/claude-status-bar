@@ -1,5 +1,7 @@
 // Sources/ClaudeStatusBarApp/Views/DashboardView.swift
 import SwiftUI
+import AppKit
+import ClaudeStatusBarCore
 
 public struct DashboardView: View {
     @Bindable var env: AppEnvironment
@@ -13,6 +15,7 @@ public struct DashboardView: View {
                     ForEach(env.appState.accounts) { acct in
                         VStack(alignment: .leading, spacing: 8) {
                             AccountRowView(account: acct, now: ctx.date)
+                            AccountEditFields(account: acct, manager: env.accountManager)
                             HStack {
                                 Stepper("Every \(acct.syncInterval)s",
                                         value: Binding(
@@ -22,7 +25,10 @@ public struct DashboardView: View {
                                     .font(.caption)
                                 Spacer()
                                 if acct.status == .needsReauth {
-                                    Button("Sign in again") { openWindow(id: "add-account") }
+                                    Button("Sign in again") {
+                                        NSApp.activate(ignoringOtherApps: true)
+                                        openWindow(id: "add-account")
+                                    }
                                 }
                                 Button(role: .destructive) {
                                     env.accountManager.remove(acct.id)
@@ -37,6 +43,35 @@ public struct DashboardView: View {
             }
             .frame(minWidth: 700, minHeight: 420)
             .navigationTitle("Claude Usage")
+        }
+    }
+}
+
+/// Editable account name + menu-bar prefix. Uses local @State so typing stays smooth
+/// (no cursor jumps) and commits live to the manager as the value changes.
+private struct AccountEditFields: View {
+    let account: Account
+    let manager: AccountManager
+    @State private var name: String
+    @State private var prefix: String
+
+    init(account: Account, manager: AccountManager) {
+        self.account = account
+        self.manager = manager
+        _name = State(initialValue: account.label)
+        _prefix = State(initialValue: account.menuBarPrefix ?? "")
+    }
+
+    var body: some View {
+        HStack {
+            Text("Name").font(.caption).foregroundStyle(.secondary)
+            TextField("account name", text: $name)
+                .textFieldStyle(.roundedBorder).font(.caption)
+                .onChange(of: name) { _, new in manager.setLabel(account.id, new) }
+            Text("Menu label").font(.caption).foregroundStyle(.secondary)
+            TextField("prefix", text: $prefix)
+                .textFieldStyle(.roundedBorder).font(.caption).frame(width: 90)
+                .onChange(of: prefix) { _, new in manager.setPrefix(account.id, new) }
         }
     }
 }

@@ -50,6 +50,22 @@ public final class AccountManager {
         persist()
     }
 
+    public func setPrefix(_ id: UUID, _ prefix: String) {
+        guard var a = appState.accounts.first(where: { $0.id == id }) else { return }
+        a.menuBarPrefix = prefix.isEmpty ? nil : prefix
+        appState.upsert(a)
+        persist()
+    }
+
+    public func setLabel(_ id: UUID, _ label: String) {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              var a = appState.accounts.first(where: { $0.id == id }) else { return }
+        a.label = trimmed
+        appState.upsert(a)
+        persist()
+    }
+
     private func persist() {
         do { try snapshotStore.save(appState.accounts) }
         catch { appState.report("Couldn't save accounts: \(error)") }

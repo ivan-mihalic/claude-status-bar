@@ -15,6 +15,15 @@ public struct UsageBarView: View {
         }
     }
 
+    private var resetText: String {
+        let base = Format.resetCountdown(to: window.resetsAt, now: now)
+        // Weekly windows also show the absolute reset day/date/time in parentheses.
+        if window.key.hasPrefix("seven_day") {
+            return "\(base) (\(Format.absoluteReset(window.resetsAt)))"
+        }
+        return base
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
@@ -23,7 +32,7 @@ public struct UsageBarView: View {
                 Text(Format.percent(window.utilization)).font(.caption.monospacedDigit())
             }
             ProgressView(value: min(window.utilization, 100), total: 100).tint(tint)
-            Text(Format.resetCountdown(to: window.resetsAt, now: now))
+            Text(resetText)
                 .font(.caption2).foregroundStyle(.tertiary)
         }
     }

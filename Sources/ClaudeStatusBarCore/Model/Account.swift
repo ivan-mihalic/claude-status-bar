@@ -20,13 +20,18 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     public var status: AccountStatus
     public var lastSnapshot: UsageSnapshot?
     public var lastSyncedAt: Date?
+    /// Optional short label shown before this account's percentages in the menu bar.
+    /// Optional so old persisted snapshots (without this key) still decode.
+    public var menuBarPrefix: String?
 
     public init(id: UUID, label: String, accountUuid: String?,
                 syncInterval: Int, status: AccountStatus,
-                lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?) {
+                lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?,
+                menuBarPrefix: String? = nil) {
         self.id = id; self.label = label; self.accountUuid = accountUuid
         self.syncInterval = syncInterval; self.status = status
         self.lastSnapshot = lastSnapshot; self.lastSyncedAt = lastSyncedAt
+        self.menuBarPrefix = menuBarPrefix
     }
 
     public var effectiveInterval: Int { max(syncInterval, Self.intervalFloor) }

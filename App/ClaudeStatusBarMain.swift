@@ -6,6 +6,7 @@ import Sparkle
 @main
 struct ClaudeStatusBarMain: App {
     @State private var env = AppEnvironment()
+    @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
@@ -17,13 +18,15 @@ struct ClaudeStatusBarMain: App {
         } label: {
             let level = MenuBarIndicator.level(maxUtilization: env.appState.maxUtilization)
             Image(systemName: level == .critical ? "gauge.high" : level == .warn ? "gauge.medium" : "gauge.low")
-            Text(MenuBarIndicator.label(maxUtilization: env.appState.maxUtilization))
+            Text(MenuBarLabel.text(accounts: env.appState.accounts, showAccountPercents: showAccountPercents))
         }
         .menuBarExtraStyle(.window)
 
         Window("Claude Usage", id: "dashboard") { DashboardView(env: env) }
         Window("Add Account", id: "add-account") { AddAccountView(env: env) }
-        Settings {
+        // A plain Window (not the Settings scene) so it opens reliably from the menu-bar
+        // popover via the same activate-then-openWindow path as the other windows.
+        Window("Settings", id: "settings") {
             SettingsView(updatesButton: AnyView(CheckForUpdatesView(updater: updaterController.updater)))
         }
     }

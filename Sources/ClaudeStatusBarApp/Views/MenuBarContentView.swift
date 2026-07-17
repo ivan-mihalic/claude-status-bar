@@ -11,6 +11,16 @@ public struct MenuBarContentView: View {
         self.updatesButton = updatesButton
     }
 
+    // An LSUIElement (accessory) app can't present or key-focus a window via
+    // openWindow alone — the window silently never appears, and even if it did,
+    // its text fields wouldn't accept keyboard input. Become a regular app +
+    // activate first so the window shows and the paste field is typable.
+    private func openAppWindow(_ id: String) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: id)
+    }
+
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             VStack(alignment: .leading, spacing: 8) {
@@ -32,9 +42,9 @@ public struct MenuBarContentView: View {
                         Divider()
                     }
                 }
-                Button("Add Account…") { openWindow(id: "add-account") }
-                Button("Open Dashboard") { openWindow(id: "dashboard") }
-                SettingsLink { Text("Settings…") }
+                Button("Add Account…") { openAppWindow("add-account") }
+                Button("Open Dashboard") { openAppWindow("dashboard") }
+                Button("Settings…") { openAppWindow("settings") }
                 if let updatesButton {
                     updatesButton
                 }
