@@ -4,7 +4,7 @@ import Observation
 
 @Observable public final class AppState {
     public var accounts: [Account] = []
-    public var lastError: String?
+    public private(set) var lastError: String?
     public init() {}
 
     /// Surfaces a failure to the user. The message is redacted before storage
