@@ -2,4 +2,7 @@
 
 Nativní macOS menu-bar aplikace pro sledování Claude usage napříč více účty.
 
-> 🚧 Work in progress — ve fázi návrhu.
+## Install
+
+See [INSTALL.md](INSTALL.md) for downloading the release build, the first-launch
+Gatekeeper bypass (the app is unsigned), and how self-updates work.
