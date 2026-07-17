@@ -112,4 +112,7 @@ plans live under `docs/`.
 
 ## License
 
-Personal project — all rights reserved (no license granted yet).
+[PolyForm Noncommercial License 1.0.0](LICENSE.md) — **source-available, not open source.**
+You may view the source and use it for **noncommercial** purposes (personal use, study,
+hobby, research); **commercial use is not permitted**. Provided "as is", without any warranty.
+© 2026 Ivan Mihalič.
