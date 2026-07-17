@@ -251,6 +251,10 @@ xcodegen generate
 xcodebuild -project ClaudeStatusBar.xcodeproj -scheme ClaudeStatusBar \
   -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
 APP="build/Build/Products/Release/ClaudeStatusBar.app"
+# Ad-hoc sign — Sparkle's generate_appcast rejects fully-unsigned apps ("failed Apple
+# Code Signing checks"). Updates are still authenticated by the EdDSA SUPublicEDKey.
+codesign --force --deep --sign - "$APP"
+codesign --verify --deep --strict "$APP"
 # ditto preserves symlinks/permissions Sparkle needs
 ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/ClaudeStatusBar-$VERSION.zip"
 echo "dist/ClaudeStatusBar-$VERSION.zip"
