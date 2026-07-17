@@ -59,7 +59,7 @@ Clears the "error-surfacing bundle" the Plan-2 final review triaged here: the si
 
 ```swift
 // in AppState (AppState.swift)
-    public var lastError: String?
+    public private(set) var lastError: String?   // only mutable via report()/clearError() — keeps the "always redacted" invariant
     public func report(_ message: String) { lastError = Redaction.redact(message) }
     public func clearError() { lastError = nil }
 ```
