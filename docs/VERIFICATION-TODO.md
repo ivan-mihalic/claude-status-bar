@@ -26,5 +26,19 @@ Everything around it is verified: SPM builds 0 warnings, 66 unit tests pass (swi
 ### If the endpoint behavior differs from the confirmed response shape
 The whole data path is unit-tested against the research-confirmed `/api/oauth/usage` JSON shape. If the live call returns a different shape / a 4xx, adjust `UsageDTO`/`UsageAdapter` (the tolerant adapter should degrade, not crash) and re-run. The `usage-cli` (Plan 1) is a faster loop for this: `swift run usage-cli` reads the local Claude Code token and prints the bars (also needs a Keychain "Allow" at a real terminal).
 
+## 🟠 Plan 3 — manual/at-Mac tasks (distribution + self-update)
+
+The distribution code (error surface, Sparkle wiring, `scripts/package.sh`, `release.yml`, `INSTALL.md`) is done + CI-buildable. Two tasks need a human at the Mac:
+
+### Task 3 — generate the EdDSA signing keys
+1. Get Sparkle's `bin/generate_keys` (from the Sparkle distribution matching the resolved SPM version, or the resolved SwiftPM artifacts under `build/.../SourcePackages/artifacts/sparkle/`). Run `./bin/generate_keys` → creates a private key in the login Keychain, prints the **public** key.
+2. Put the printed public key into **`project.yml`** → `info.properties.SUPublicEDKey` (NOT `App/Info.plist` directly — `xcodegen generate` regenerates the plist from `project.yml`, so a direct plist edit gets clobbered). Regenerate, rebuild, commit `project.yml`.
+3. Export the private key and add it as the GitHub Actions repo secret `SPARKLE_ED_PRIVATE_KEY`. **Never commit it.** Then enable GitHub Pages (Settings → Pages → Source: GitHub Actions).
+
+### Task 7 — cut a release + verify the update round-trip
+1. **Before the first tag:** confirm `generate_appcast`'s private-key flag name (`--ed-key-file` used in `release.yml`) against the resolved Sparkle version — check via context7 MCP or `generate_appcast --help`. Adjust `release.yml` if the flag differs.
+2. Bump version in `project.yml`, tag `v0.1.0`, push. Watch the `Release` workflow → it should create a Release with the zip + publish `appcast.xml` to Pages. Confirm `https://ivan-mihalic.github.io/claude-status-bar/appcast.xml` loads and has an `<item>` with a `sparkle:edSignature`.
+3. Install `0.1.0`, then bump to `0.1.1`, tag `v0.1.1`, push. In the installed app → **Check for Updates…** → Sparkle should find, verify (EdDSA), download, and install `0.1.1`. Confirm relaunch at `0.1.1`.
+
 ## Also un-run (lower priority)
-- **Plan 1 `usage-cli` live E2E** — same Keychain-consent reason; never run by a human. Task 14 above supersedes it (the app exercises the real OAuth + endpoint through its own grant).
+- **Plan 1 `usage-cli` live E2E** — same Keychain-consent reason; never run by a human. The Plan-2 Task-14 verification above supersedes it (the app exercises the real OAuth + endpoint through its own grant).
