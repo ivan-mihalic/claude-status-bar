@@ -29,7 +29,8 @@ public final class SyncCoordinator {
             outcome: outcome, now: clock.now())
         counters[id] = reduced.consecutiveRateLimits
         appState.upsert(reduced.account)
-        try? snapshotStore.save(appState.accounts)
+        do { try snapshotStore.save(appState.accounts) }
+        catch { appState.report("Couldn't save accounts: \(error)") }
     }
 
     public func nextDelay(for id: UUID, now: Date) -> TimeInterval {

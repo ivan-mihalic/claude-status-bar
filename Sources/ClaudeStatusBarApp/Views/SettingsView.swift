@@ -10,7 +10,10 @@ public struct SettingsView: View {
         Form {
             Stepper("Default sync interval: \(defaultInterval)s", value: $defaultInterval, in: 60...3600, step: 60)
             Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, on in LaunchAtLogin.setEnabled(on) }
+                .onChange(of: launchAtLogin) { _, on in
+                    LaunchAtLogin.setEnabled(on)
+                    launchAtLogin = LaunchAtLogin.isEnabled   // revert if register/unregister failed
+                }
         }
         .padding(20).frame(width: 360)
     }

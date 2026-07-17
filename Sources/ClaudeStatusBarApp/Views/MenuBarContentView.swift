@@ -10,6 +10,16 @@ public struct MenuBarContentView: View {
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             VStack(alignment: .leading, spacing: 8) {
+                if let err = env.appState.lastError {
+                    HStack(alignment: .top) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text(err).font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { env.appState.clearError() } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.plain)
+                    }
+                    Divider()
+                }
                 if env.appState.accounts.isEmpty {
                     Text("No accounts connected").foregroundStyle(.secondary).padding(.vertical, 6)
                 } else {
