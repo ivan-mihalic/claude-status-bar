@@ -13,13 +13,13 @@ targets:
   ClaudeStatusBar:
     type: application
     platform: macOS
-    sources: [App/ClaudeStatusBarMain.swift, App/CheckForUpdates.swift]
+    sources: [App]
     info:
       path: App/Info.plist
       properties:
         LSUIElement: true
-        CFBundleShortVersionString: "0.1.1"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "3"
         CFBundleName: Claude Status Bar
         LSMinimumSystemVersion: "14.0"
         SUFeedURL: https://ivan-mihalic.github.io/claude-status-bar/appcast.xml
@@ -28,7 +28,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.mihalic.claude-status-bar
-        MARKETING_VERSION: "0.1.1"
+        MARKETING_VERSION: "0.1.2"
         CODE_SIGN_IDENTITY: "-"          # ad-hoc (unsigned) for local runs
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"

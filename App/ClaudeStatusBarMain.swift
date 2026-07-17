@@ -7,8 +7,8 @@ import Sparkle
 struct ClaudeStatusBarMain: App {
     @State private var env = AppEnvironment()
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
-    private let updaterController = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    private let updaterUIDelegate = UpdaterUIDelegate()
+    private let updaterController: SPUStandardUpdaterController
 
     var body: some Scene {
         MenuBarExtra {
@@ -31,5 +31,9 @@ struct ClaudeStatusBarMain: App {
         }
     }
 
-    init() { env.bootstrap() }
+    init() {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: updaterUIDelegate)
+        env.bootstrap()
+    }
 }
