@@ -5,6 +5,7 @@ import Sparkle
 
 @main
 struct ClaudeStatusBarMain: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var env = AppEnvironment()
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     private let updaterUIDelegate = UpdaterUIDelegate()

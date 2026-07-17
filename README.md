@@ -31,15 +31,24 @@ but for every account you connect, always visible in your menu bar.
 
 ## Install (recommended: download a release)
 
-1. Download the latest **`ClaudeStatusBar-<version>.zip`** from the
+1. Download the latest **`ClaudeStatusBar-<version>.dmg`** from the
    [**Releases**](https://github.com/ivan-mihalic/claude-status-bar/releases) page.
-2. Unzip and move **`ClaudeStatusBar.app`** to **`/Applications`**.
-3. **First launch (unsigned app).** macOS Gatekeeper blocks unsigned apps on first open. Do
-   one of:
-   - **Right-click** the app → **Open** → **Open** (only needed once), **or**
-   - `xattr -dr com.apple.quarantine /Applications/ClaudeStatusBar.app`
-4. It runs as a **menu-bar app** (no Dock icon while idle) — look for the **gauge icon** in
-   the top-right of your menu bar.
+2. Open the `.dmg` and drag **`ClaudeStatusBar.app`** onto the **Applications** shortcut.
+   (A `.zip` is also attached to each release if you prefer.)
+3. **First launch — get past Gatekeeper (one time).** The app is ad-hoc signed but **not
+   notarized** by Apple (no paid Developer account), so macOS shows a scary *"unidentified
+   developer / may be malware"* dialog on first open. It is **not** actually malware — this is
+   simply how macOS treats every un-notarized download. Do one of:
+   - **Terminal (cleanest):** `xattr -dr com.apple.quarantine /Applications/ClaudeStatusBar.app`, then open normally, **or**
+   - **System Settings → Privacy & Security** → scroll to the blocked-app notice → **Open
+     Anyway** (macOS 15 Sequoia removed the old right-click → Open shortcut for un-notarized apps).
+
+   You only do this **once**. Sparkle-delivered updates afterwards install without re-prompting.
+4. It runs as a **menu-bar app** (no Dock icon by default) — look for the **gauge icon** in
+   the top-right of your menu bar. You can turn on a Dock icon in **Settings → Show icon in Dock**.
+
+> **Prefer zero Gatekeeper prompts?** Build it yourself ([below](#build-from-source)) — a
+> locally built app carries no quarantine flag and launches with no warning at all.
 
 See [`INSTALL.md`](INSTALL.md) for the short version.
 
@@ -72,9 +81,10 @@ open build/Build/Products/Release/ClaudeStatusBar.app
 ### Dashboard & settings
 - **Open Dashboard** — large bars, reset day/date/time, and per-account **Name**,
   **Menu label** (prefix), **sync interval**, remove, and re-auth controls.
-- **Settings…** — default sync interval, **Launch at login**, and **Show each account's
-  percentages in the menu bar** (uses the per-account "Menu label" prefixes to tell accounts
-  apart, e.g. `W 20/19/5  P 30/40`).
+- **Settings…** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
+  default; the app lives in the menu bar), and **Show each account's percentages in the menu
+  bar** (uses the per-account "Menu label" prefixes to tell accounts apart, e.g.
+  `W 20/19/5  P 30/40`).
 
 ### Updates
 The app checks for updates via **Sparkle** and has a **Check for Updates…** button in the

@@ -4,6 +4,7 @@ import SwiftUI
 public struct SettingsView: View {
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
+    @AppStorage("showDockIcon") private var showDockIcon = false
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     public init() {}
 
@@ -14,6 +15,10 @@ public struct SettingsView: View {
                 .onChange(of: launchAtLogin) { _, on in
                     LaunchAtLogin.setEnabled(on)
                     launchAtLogin = LaunchAtLogin.isEnabled   // revert if register/unregister failed
+                }
+            Toggle("Show icon in Dock", isOn: $showDockIcon)
+                .onChange(of: showDockIcon) { _, on in
+                    DockController.shared.setShowDock(on)
                 }
             Toggle("Show each account's percentages in the menu bar", isOn: $showAccountPercents)
             Text("Add a short prefix per account in the Dashboard to tell them apart.")

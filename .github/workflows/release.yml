@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install XcodeGen + create-dmg
+        run: brew install xcodegen create-dmg
 
       - name: Package unsigned .app
         run: |
@@ -45,22 +45,24 @@ jobs:
           chmod 600 "$KEYFILE"
           trap 'rm -f "$KEYFILE"' EXIT
           tr -d '\n' <<< "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
-          mkdir -p public
-          # Host the update ZIP on GitHub Pages (public even for a private repo), NOT on the
-          # private repo's Release assets — those return 404 to Sparkle's unauthenticated
-          # download. The zip is copied into public/ below so it deploys to Pages alongside
-          # the appcast, and the enclosure URL points there.
+          # Run generate_appcast against a dir holding ONLY the zip. dist/ also has the
+          # .dmg, and generate_appcast would otherwise emit a second (DMG) enclosure for
+          # the same version. Sparkle updates use the zip; the DMG is a human download.
+          mkdir -p appcast-src public
+          cp dist/ClaudeStatusBar-*.zip appcast-src/
+          # Host the update ZIP on GitHub Pages (public), NOT the Release assets — those
+          # returned 404 to Sparkle's unauthenticated download while the repo was private.
           "$GEN" --ed-key-file "$KEYFILE" \
             --download-url-prefix "https://ivan-mihalic.github.io/claude-status-bar/" \
-            dist/
+            appcast-src/
           rm -f "$KEYFILE"
-          cp dist/appcast.xml public/appcast.xml
+          cp appcast-src/appcast.xml public/appcast.xml
           cp dist/ClaudeStatusBar-*.zip public/
 
-      - name: Create GitHub Release + upload zip
+      - name: Create GitHub Release + upload dmg & zip
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/ClaudeStatusBar-*.zip --title "${GITHUB_REF_NAME}" --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" dist/ClaudeStatusBar-*.dmg dist/ClaudeStatusBar-*.zip --title "${GITHUB_REF_NAME}" --generate-notes
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

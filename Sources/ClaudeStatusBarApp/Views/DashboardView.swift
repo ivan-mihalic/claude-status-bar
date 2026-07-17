@@ -26,7 +26,7 @@ public struct DashboardView: View {
                                 Spacer()
                                 if acct.status == .needsReauth {
                                     Button("Sign in again") {
-                                        NSApp.activate(ignoringOtherApps: true)
+                                        DockController.shared.prepareToShowWindow()
                                         openWindow(id: "add-account")
                                     }
                                 }

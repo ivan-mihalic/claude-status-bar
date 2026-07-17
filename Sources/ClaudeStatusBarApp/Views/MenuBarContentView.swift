@@ -14,8 +14,7 @@ public struct MenuBarContentView: View {
     // its text fields wouldn't accept keyboard input. Become a regular app +
     // activate first so the window shows and the paste field is typable.
     private func openAppWindow(_ id: String) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        DockController.shared.prepareToShowWindow()
         openWindow(id: id)
     }
 
