@@ -38,6 +38,30 @@ private func coord(_ http: MockHTTPClient, _ state: AppState, _ store: TokenStor
     #expect(state.accounts.first?.lastSnapshot?.session.utilization == 33.0)
 }
 
+@Test @MainActor func syncNow_accountRemovedMidSync_doesNotResurrectIt() async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let clock = ManualClock(Date(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(TokenBundle(accessToken: "AT", refreshToken: "RT",
+        expiresAt: Date(timeIntervalSince1970: 100_000), scopes: []), for: id)
+    let state = AppState()
+    state.upsert(Account(id: id, label: "a", accountUuid: nil, syncInterval: 300,
+                         status: .never, lastSnapshot: nil, lastSyncedAt: nil))
+    let usage = try! Data(contentsOf: Bundle.module.url(forResource: "usage_full",
+        withExtension: "json", subdirectory: "Fixtures")!)
+    // Simulate the user hitting "Remove" while the request is in flight: the handler
+    // removes the account from appState, THEN the (now stale) response arrives.
+    let http = MockHTTPClient { _ in
+        state.remove(id)
+        return HTTPResponse(status: 200, headers: [:], body: usage)
+    }
+    let c = coord(http, state, store, clock, tmp)
+    await c.syncNow(id)
+    #expect(state.accounts.isEmpty)
+}
+
 @Test @MainActor func nextDelay_rateLimited_usesRetryAt() async {
     let clock = ManualClock(Date(timeIntervalSince1970: 1000))
     let state = AppState()

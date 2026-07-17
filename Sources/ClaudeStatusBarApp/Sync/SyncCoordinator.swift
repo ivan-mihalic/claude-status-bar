@@ -16,8 +16,14 @@ public final class SyncCoordinator {
     }
 
     public func syncNow(_ id: UUID) async {
-        guard let account = appState.accounts.first(where: { $0.id == id }) else { return }
+        guard appState.accounts.contains(where: { $0.id == id }) else { return }
         let outcome = await engine.syncOnce(accountID: id)
+        // Re-fetch after the await: the account may have been removed (or its
+        // interval changed) while syncOnce was in flight — never resurrect a removed account.
+        guard let account = appState.accounts.first(where: { $0.id == id }) else {
+            counters[id] = nil
+            return
+        }
         let reduced = SyncReducer.reduce(
             SyncState(account: account, consecutiveRateLimits: counters[id] ?? 0),
             outcome: outcome, now: clock.now())
@@ -49,4 +55,12 @@ public final class SyncCoordinator {
     }
 
     public func stop() { tasks.values.forEach { $0.cancel() }; tasks.removeAll() }
+
+    public func cancel(_ id: UUID) {
+        tasks[id]?.cancel()
+        tasks[id] = nil
+        counters[id] = nil
+    }
+
+    deinit { tasks.values.forEach { $0.cancel() } }
 }

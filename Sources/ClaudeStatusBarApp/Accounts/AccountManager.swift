@@ -18,11 +18,12 @@ public final class AccountManager {
 
     public func beginAdd(label: String?) -> PendingLogin { login.begin() }
 
-    public func finishAdd(_ pending: PendingLogin, code: String, label: String) async throws -> Account {
+    public func finishAdd(_ pending: PendingLogin, code: String, label: String,
+                          interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
         _ = try await login.complete(pending, code: code, accountID: id)
         let account = Account(id: id, label: label, accountUuid: nil,
-                              syncInterval: Account.intervalDefault, status: .never,
+                              syncInterval: max(60, interval), status: .never,
                               lastSnapshot: nil, lastSyncedAt: nil)
         appState.upsert(account)
         persist()

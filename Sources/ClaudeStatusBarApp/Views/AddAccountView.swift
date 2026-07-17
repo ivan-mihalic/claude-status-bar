@@ -5,6 +5,7 @@ import ClaudeStatusBarCore
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var pending: PendingLogin?
     @State private var code = ""
     @State private var label = ""
@@ -28,10 +29,12 @@ public struct AddAccountView: View {
                 TextField("Paste authorization code", text: $code)
                 Button(connecting ? "Connecting…" : "Connect") { Task { await connect() } }
                     .disabled(code.isEmpty || connecting).buttonStyle(.borderedProminent)
+                Button("Start over") { pending = nil; code = ""; error = nil }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
         }
         .padding(20).frame(width: 380)
+        .onAppear { pending = nil; code = ""; error = nil }
     }
 
     private func connect() async {
@@ -39,8 +42,9 @@ public struct AddAccountView: View {
         connecting = true; defer { connecting = false }
         do {
             _ = try await env.accountManager.finishAdd(pending, code: code,
-                    label: label.isEmpty ? "Claude account" : label)
+                    label: label.isEmpty ? "Claude account" : label, interval: defaultInterval)
             env.syncCoordinator.start()   // (re)start loops incl. the new account
+            self.pending = nil; code = ""; label = ""; error = nil
             dismiss()
         } catch { self.error = Redaction.redact("\(error)") }
     }

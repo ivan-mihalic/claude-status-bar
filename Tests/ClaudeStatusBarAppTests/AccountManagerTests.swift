@@ -35,6 +35,18 @@ private func makeManager(_ http: MockHTTPClient, store: TokenStore, snapURL: URL
     #expect(try SnapshotStore(fileURL: tmp).load().first?.id == acct.id) // metadata persisted
 }
 
+@Test @MainActor func finishAdd_withInterval_usesCustomSyncInterval() async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = InMemoryTokenStore()
+    let http = MockHTTPClient { _ in HTTPResponse(status: 200, headers: [:],
+        body: Data(#"{"access_token":"AT","refresh_token":"RT","expires_in":28800,"scope":""}"#.utf8)) }
+    let (mgr, _) = makeManager(http, store: store, snapURL: tmp)
+    let pending = mgr.beginAdd(label: nil)
+    let acct = try await mgr.finishAdd(pending, code: "CODE", label: "work@x", interval: 600)
+    #expect(acct.syncInterval == 600)
+}
+
 @Test @MainActor func remove_deletesTokenAndPersists() async throws {
     let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
     defer { try? FileManager.default.removeItem(at: tmp) }

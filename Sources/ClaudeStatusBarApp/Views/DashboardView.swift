@@ -24,7 +24,10 @@ public struct DashboardView: View {
                                 if acct.status == .needsReauth {
                                     Button("Sign in again") { openWindow(id: "add-account") }
                                 }
-                                Button(role: .destructive) { env.accountManager.remove(acct.id) }
+                                Button(role: .destructive) {
+                                    env.accountManager.remove(acct.id)
+                                    env.syncCoordinator.cancel(acct.id)
+                                }
                                     label: { Image(systemName: "trash") }
                             }
                         }
