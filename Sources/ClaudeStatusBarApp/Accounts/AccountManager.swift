@@ -37,7 +37,8 @@ public final class AccountManager {
     }
 
     public func remove(_ id: UUID) {
-        try? tokenStore.delete(id)
+        do { try tokenStore.delete(id) }
+        catch { appState.report("Couldn't delete stored credentials: \(error)") }
         appState.remove(id)
         persist()
     }
@@ -49,5 +50,8 @@ public final class AccountManager {
         persist()
     }
 
-    private func persist() { try? snapshotStore.save(appState.accounts) }
+    private func persist() {
+        do { try snapshotStore.save(appState.accounts) }
+        catch { appState.report("Couldn't save accounts: \(error)") }
+    }
 }

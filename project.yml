@@ -6,11 +6,14 @@ options:
 packages:
   ClaudeStatusBar:
     path: .
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 targets:
   ClaudeStatusBar:
     type: application
     platform: macOS
-    sources: [App/ClaudeStatusBarMain.swift]
+    sources: [App/ClaudeStatusBarMain.swift, App/CheckForUpdates.swift]
     info:
       path: App/Info.plist
       properties:
@@ -19,6 +22,9 @@ targets:
         CFBundleVersion: "1"
         CFBundleName: Claude Status Bar
         LSMinimumSystemVersion: "14.0"
+        SUFeedURL: https://ivan-mihalic.github.io/claude-status-bar/appcast.xml
+        SUPublicEDKey: REPLACE_WITH_PUBLIC_KEY_FROM_TASK_3
+        SUEnableInstallerLauncherService: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.mihalic.claude-status-bar
@@ -29,3 +35,5 @@ targets:
     dependencies:
       - package: ClaudeStatusBar
         product: ClaudeStatusBarApp
+      - package: Sparkle
+        product: Sparkle

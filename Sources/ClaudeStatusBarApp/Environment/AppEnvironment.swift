@@ -37,7 +37,8 @@ public final class AppEnvironment {
     }
 
     public func bootstrap() {
-        if let saved = try? snapshotStore.load() { saved.forEach { appState.upsert($0) } }
+        do { (try snapshotStore.load()).forEach { appState.upsert($0) } }
+        catch { appState.report("Couldn't load saved accounts: \(error)") }
         syncCoordinator.start()
     }
 }

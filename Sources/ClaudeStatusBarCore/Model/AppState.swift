@@ -4,7 +4,14 @@ import Observation
 
 @Observable public final class AppState {
     public var accounts: [Account] = []
+    public private(set) var lastError: String?
     public init() {}
+
+    /// Surfaces a failure to the user. The message is redacted before storage
+    /// so secrets never end up on screen.
+    public func report(_ message: String) { lastError = Redaction.redact(message) }
+
+    public func clearError() { lastError = nil }
 
     public func upsert(_ account: Account) {
         if let idx = accounts.firstIndex(where: { $0.id == account.id }) {

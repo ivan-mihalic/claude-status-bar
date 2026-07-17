@@ -10,7 +10,9 @@ public struct AccountRowView: View {
     @ViewBuilder private var statusBadge: some View {
         switch account.status {
         case .ok:            EmptyView()
-        case .rateLimited:   Label("rate-limited", systemImage: "clock.badge.exclamationmark").foregroundStyle(.orange)
+        case .rateLimited(let retryAt):
+            Label("retry \(Format.resetCountdown(to: retryAt, now: now).replacingOccurrences(of: "resets ", with: ""))",
+                  systemImage: "clock.badge.exclamationmark").foregroundStyle(.orange)
         case .needsReauth:   Label("sign in", systemImage: "person.badge.key").foregroundStyle(.red)
         case .offline:       Label("offline", systemImage: "wifi.slash").foregroundStyle(.secondary)
         case .never:         Label("syncing…", systemImage: "arrow.triangle.2.circlepath").foregroundStyle(.secondary)

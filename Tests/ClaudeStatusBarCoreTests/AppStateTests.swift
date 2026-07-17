@@ -45,3 +45,13 @@ private func snap(_ s: Double, _ w: Double, _ p: Double) -> UsageSnapshot {
     s.remove(id)
     #expect(s.accounts.isEmpty)
 }
+
+@Test func report_storesRedactedMessage_andClearResets() {
+    let s = AppState()
+    #expect(s.lastError == nil)
+    s.report("disk write failed: sk-ant-oat01-SECRET")
+    #expect(s.lastError != nil)
+    #expect(!(s.lastError!.contains("SECRET")))   // redacted
+    s.clearError()
+    #expect(s.lastError == nil)
+}

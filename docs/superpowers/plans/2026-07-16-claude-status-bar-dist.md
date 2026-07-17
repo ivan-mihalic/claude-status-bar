@@ -59,7 +59,7 @@ Clears the "error-surfacing bundle" the Plan-2 final review triaged here: the si
 
 ```swift
 // in AppState (AppState.swift)
-    public var lastError: String?
+    public private(set) var lastError: String?   // only mutable via report()/clearError() — keeps the "always redacted" invariant
     public func report(_ message: String) { lastError = Redaction.redact(message) }
     public func clearError() { lastError = nil }
 ```
@@ -293,7 +293,9 @@ jobs:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           # Locate Sparkle's generate_appcast from the resolved SwiftPM artifacts.
-          GEN=$(find ~/Library/Developer/Xcode/DerivedData build -name generate_appcast -type f 2>/dev/null | head -1)
+          # `|| true`: find exits non-zero if a path arg (DerivedData) doesn't exist on a fresh
+          # runner, which under `set -e` would abort before the guard below. The guard handles empty.
+          GEN=$(find ~/Library/Developer/Xcode/DerivedData build -name generate_appcast -type f -print -quit 2>/dev/null || true)
           [ -n "$GEN" ] || { echo "generate_appcast not found — resolve Sparkle first"; exit 1; }
           mkdir -p public
           # Pass the private key on stdin (NOT the deprecated -s flag). Confirm the exact
