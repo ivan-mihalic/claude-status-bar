@@ -5,10 +5,8 @@ import AppKit
 public struct MenuBarContentView: View {
     @Bindable var env: AppEnvironment
     @Environment(\.openWindow) private var openWindow
-    private let updatesButton: AnyView?
-    public init(env: AppEnvironment, updatesButton: AnyView? = nil) {
+    public init(env: AppEnvironment) {
         self.env = env
-        self.updatesButton = updatesButton
     }
 
     // An LSUIElement (accessory) app can't present or key-focus a window via
@@ -45,9 +43,7 @@ public struct MenuBarContentView: View {
                 Button("Add Account…") { openAppWindow("add-account") }
                 Button("Open Dashboard") { openAppWindow("dashboard") }
                 Button("Settings…") { openAppWindow("settings") }
-                if let updatesButton {
-                    updatesButton
-                }
+                Button("About…") { openAppWindow("about") }
                 Divider()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }

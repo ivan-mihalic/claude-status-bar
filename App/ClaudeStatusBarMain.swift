@@ -12,9 +12,7 @@ struct ClaudeStatusBarMain: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarContentView(
-                env: env,
-                updatesButton: AnyView(CheckForUpdatesView(updater: updaterController.updater)))
+            MenuBarContentView(env: env)
         } label: {
             let level = MenuBarIndicator.level(maxUtilization: env.appState.maxUtilization)
             Image(systemName: level == .critical ? "gauge.high" : level == .warn ? "gauge.medium" : "gauge.low")
@@ -27,7 +25,10 @@ struct ClaudeStatusBarMain: App {
         // A plain Window (not the Settings scene) so it opens reliably from the menu-bar
         // popover via the same activate-then-openWindow path as the other windows.
         Window("Settings", id: "settings") {
-            SettingsView(updatesButton: AnyView(CheckForUpdatesView(updater: updaterController.updater)))
+            SettingsView()
+        }
+        Window("About", id: "about") {
+            AboutView(updater: updaterController.updater)
         }
     }
 
