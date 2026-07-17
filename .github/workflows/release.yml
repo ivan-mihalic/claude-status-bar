@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Package unsigned .app
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ./scripts/package.sh "$VERSION"
+
+      - name: Sign appcast (EdDSA)
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          # Locate Sparkle's generate_appcast from the resolved SwiftPM artifacts.
+          GEN=$(find ~/Library/Developer/Xcode/DerivedData build -name generate_appcast -type f 2>/dev/null | head -1)
+          [ -n "$GEN" ] || { echo "generate_appcast not found — Sparkle must be resolved first"; exit 1; }
+          # Write the private key to a tightly-permissioned temp file rather than piping it
+          # via stdin (`--ed-key-file -`): stdin support is version-dependent, while the
+          # keyfile flag is broadly supported and just as safe when the file is removed
+          # immediately after use. NOTE: re-confirm generate_appcast's exact key-input flag
+          # (--ed-key-file vs. an alternate name) against the Sparkle version actually
+          # resolved here (check via context7) before the first real release — Sparkle
+          # deprecated the old `-s` inline-key flag and CLI details can shift across
+          # versions. Never echo/print the key.
+          KEYFILE="$(mktemp)"
+          chmod 600 "$KEYFILE"
+          tr -d '\n' <<< "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
+          mkdir -p public
+          "$GEN" --ed-key-file "$KEYFILE" \
+            --download-url-prefix "https://github.com/ivan-mihalic/claude-status-bar/releases/download/${GITHUB_REF_NAME}/" \
+            dist/
+          rm -f "$KEYFILE"
+          cp dist/appcast.xml public/appcast.xml
+
+      - name: Create GitHub Release + upload zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/ClaudeStatusBar-*.zip --title "${GITHUB_REF_NAME}" --generate-notes
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with: { path: public }
+
+  deploy-pages:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
