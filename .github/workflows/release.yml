@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           # Locate Sparkle's generate_appcast from the resolved SwiftPM artifacts.
-          GEN=$(find ~/Library/Developer/Xcode/DerivedData build -name generate_appcast -type f 2>/dev/null | head -1)
+          GEN=$(find ~/Library/Developer/Xcode/DerivedData build -name generate_appcast -type f -print -quit 2>/dev/null)
           [ -n "$GEN" ] || { echo "generate_appcast not found — Sparkle must be resolved first"; exit 1; }
           # Write the private key to a tightly-permissioned temp file rather than piping it
           # via stdin (`--ed-key-file -`): stdin support is version-dependent, while the
@@ -41,6 +41,7 @@ jobs:
           # versions. Never echo/print the key.
           KEYFILE="$(mktemp)"
           chmod 600 "$KEYFILE"
+          trap 'rm -f "$KEYFILE"' EXIT
           tr -d '\n' <<< "$SPARKLE_ED_PRIVATE_KEY" > "$KEYFILE"
           mkdir -p public
           "$GEN" --ed-key-file "$KEYFILE" \
