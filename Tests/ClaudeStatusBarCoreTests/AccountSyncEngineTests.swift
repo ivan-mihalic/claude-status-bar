@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import ClaudeStatusBarCore
+import TestSupport
 
 private func engine(_ http: MockHTTPClient, clock: ManualClock,
                      store: TokenStore) -> AccountSyncEngine {

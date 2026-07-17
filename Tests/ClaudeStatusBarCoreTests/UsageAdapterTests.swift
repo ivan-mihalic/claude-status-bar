@@ -34,3 +34,7 @@ private func dto(_ name: String) throws -> UsageResponseDTO {
                                    fetchedAt: .init(timeIntervalSince1970: 0))
     }
 }
+
+@Test func label_titleCasesMultiWordModel() {
+    #expect(UsageAdapter.label(forKey: "seven_day_claude_opus_4") == "Week (Claude Opus 4)")
+}

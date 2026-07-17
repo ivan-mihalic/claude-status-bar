@@ -20,15 +20,17 @@ public struct TokenBundle: Codable, Equatable, Sendable {
 
 public struct TokenResponse: Decodable, Sendable {
     public let access_token: String
-    public let refresh_token: String
-    public let expires_in: Double
+    public let refresh_token: String?
+    public let expires_in: Double?
     public let scope: String?
 
-    public func bundle(now: Date) -> TokenBundle {
+    /// RFC 6749 §5.1: `refresh_token` may be omitted (keep the old one);
+    /// `expires_in` is optional (default to a conservative 1h).
+    public func bundle(now: Date, previousRefreshToken: String) -> TokenBundle {
         TokenBundle(
             accessToken: access_token,
-            refreshToken: refresh_token,
-            expiresAt: now.addingTimeInterval(expires_in),
+            refreshToken: refresh_token ?? previousRefreshToken,
+            expiresAt: now.addingTimeInterval(expires_in ?? 3600),
             scopes: (scope ?? "").split(separator: " ").map(String.init)
         )
     }

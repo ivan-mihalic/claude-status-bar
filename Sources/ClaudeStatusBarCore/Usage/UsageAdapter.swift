@@ -11,7 +11,10 @@ public enum UsageAdapter {
         default:
             if key.hasPrefix("seven_day_") {
                 let model = String(key.dropFirst("seven_day_".count))
-                return "Week (\(model.prefix(1).uppercased() + model.dropFirst()))"
+                let titled = model.split(separator: "_")
+                    .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+                    .joined(separator: " ")
+                return "Week (\(titled))"
             }
             return key
         }

@@ -26,3 +26,22 @@ jobs:
         # round-trip test requires an interactive/unlocked keychain and
         # must stay skipped in CI.
         run: swift test
+
+  app-build:
+    # Builds the macOS .app target (XcodeGen + xcodebuild) unsigned, so a
+    # broken app target fails CI even though it isn't exercised by the SPM
+    # test suite above.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build app (unsigned)
+        run: |
+          xcodebuild -project ClaudeStatusBar.xcodeproj -scheme ClaudeStatusBar \
+            -configuration Debug CODE_SIGNING_ALLOWED=NO build

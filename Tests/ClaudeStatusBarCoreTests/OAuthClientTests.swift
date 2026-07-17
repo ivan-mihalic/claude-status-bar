@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import ClaudeStatusBarCore
+import TestSupport
 
 private func ok(_ json: String) -> HTTPResponse {
     HTTPResponse(status: 200, headers: [:], body: Data(json.utf8))
