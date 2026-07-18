@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Sparkle
 
 /// The "About" window: app name + version, a Check-for-Updates button, and a link to the repo.
@@ -13,8 +14,9 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "gauge.medium")
-                .font(.system(size: 44)).foregroundStyle(.tint)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable().frame(width: 96, height: 96)
+                .accessibilityLabel("Claude Status Bar app icon")
             Text("Claude Status Bar").font(.title2.weight(.semibold))
             Text(versionText).font(.callout).foregroundStyle(.secondary)
 

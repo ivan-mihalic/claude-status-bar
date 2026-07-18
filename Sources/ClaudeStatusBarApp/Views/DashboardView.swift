@@ -5,7 +5,7 @@ import ClaudeStatusBarCore
 
 public struct DashboardView: View {
     @Bindable var env: AppEnvironment
-    @Environment(\.openWindow) private var openWindow
+    @Environment(AppRouter.self) private var router
     public init(env: AppEnvironment) { self.env = env }
 
     public var body: some View {
@@ -25,10 +25,7 @@ public struct DashboardView: View {
                                     .font(.caption)
                                 Spacer()
                                 if acct.status == .needsReauth {
-                                    Button("Sign in again") {
-                                        DockController.shared.prepareToShowWindow()
-                                        openWindow(id: "add-account")
-                                    }
+                                    Button("Sign in again") { router.selection = .addAccount }
                                 }
                                 Button(role: .destructive) {
                                     env.accountManager.remove(acct.id)

@@ -4,7 +4,7 @@ import ClaudeStatusBarCore
 
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
-    @Environment(\.dismiss) private var dismiss
+    @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var pending: PendingLogin?
     @State private var code = ""
@@ -45,7 +45,7 @@ public struct AddAccountView: View {
                     label: label.isEmpty ? "Claude account" : label, interval: defaultInterval)
             env.syncCoordinator.start()   // (re)start loops incl. the new account
             self.pending = nil; code = ""; label = ""; error = nil
-            dismiss()
+            router.selection = .dashboard   // back to the overview in the same window
         } catch { self.error = Redaction.redact("\(error)") }
     }
 }

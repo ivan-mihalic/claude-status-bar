@@ -4,6 +4,7 @@ import AppKit
 
 public struct MenuBarContentView: View {
     @Bindable var env: AppEnvironment
+    @Environment(AppRouter.self) private var router
     @Environment(\.openWindow) private var openWindow
     public init(env: AppEnvironment) {
         self.env = env
@@ -13,9 +14,11 @@ public struct MenuBarContentView: View {
     // openWindow alone — the window silently never appears, and even if it did,
     // its text fields wouldn't accept keyboard input. Become a regular app +
     // activate first so the window shows and the paste field is typable.
-    private func openAppWindow(_ id: String) {
+    // Every action targets the one "main" window and just picks its section.
+    private func open(_ section: AppRouter.Section) {
+        router.selection = section
         DockController.shared.prepareToShowWindow()
-        openWindow(id: id)
+        openWindow(id: "main")
     }
 
     public var body: some View {
@@ -39,10 +42,10 @@ public struct MenuBarContentView: View {
                         Divider()
                     }
                 }
-                Button("Add Account…") { openAppWindow("add-account") }
-                Button("Open Dashboard") { openAppWindow("dashboard") }
-                Button("Settings…") { openAppWindow("settings") }
-                Button("About…") { openAppWindow("about") }
+                Button("Open Dashboard") { open(.dashboard) }
+                Button("Add Account…") { open(.addAccount) }
+                Button("Settings…") { open(.settings) }
+                Button("About…") { open(.about) }
                 Divider()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
