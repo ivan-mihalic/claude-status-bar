@@ -14,3 +14,12 @@ import Foundation
     #expect(Format.resetCountdown(to: now.addingTimeInterval(45*60), now: now) == "resets in 45m")
     #expect(Format.resetCountdown(to: now.addingTimeInterval(-10), now: now) == "resetting…")
 }
+@Test func relativeSync_minutesFirst() {
+    let now = Date(timeIntervalSince1970: 100_000)
+    #expect(Format.relativeSync(from: nil, now: now) == "Never synced")
+    #expect(Format.relativeSync(from: now.addingTimeInterval(-2), now: now) == "Synced just now")
+    #expect(Format.relativeSync(from: now.addingTimeInterval(-30), now: now) == "Synced 30s ago")
+    #expect(Format.relativeSync(from: now.addingTimeInterval(-5*60), now: now) == "Synced 5 min ago")
+    #expect(Format.relativeSync(from: now.addingTimeInterval(-3*3600), now: now) == "Synced 3h ago")
+    #expect(Format.relativeSync(from: now.addingTimeInterval(-2*86400), now: now) == "Synced 2d ago")
+}

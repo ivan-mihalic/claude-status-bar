@@ -38,7 +38,8 @@ public struct MenuBarContentView: View {
                     Text("No accounts connected").foregroundStyle(.secondary).padding(.vertical, 6)
                 } else {
                     ForEach(env.appState.accounts) { acct in
-                        AccountRowView(account: acct, now: ctx.date)
+                        AccountRowView(account: acct, now: ctx.date,
+                                       onManualSync: { await env.syncCoordinator.syncNow(acct.id) })
                         Divider()
                     }
                 }

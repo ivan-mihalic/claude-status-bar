@@ -5,7 +5,13 @@ import ClaudeStatusBarCore
 public struct AccountRowView: View {
     let account: Account
     let now: Date
-    public init(account: Account, now: Date) { self.account = account; self.now = now }
+    /// Trigger a manual sync for this account. When nil, the sync button is hidden.
+    let onManualSync: (() async -> Void)?
+    @State private var syncing = false
+
+    public init(account: Account, now: Date, onManualSync: (() async -> Void)? = nil) {
+        self.account = account; self.now = now; self.onManualSync = onManualSync
+    }
 
     @ViewBuilder private var statusBadge: some View {
         switch account.status {
@@ -28,6 +34,20 @@ public struct AccountRowView: View {
                 if let premium = snap.weekPremium.first { UsageBarView(window: premium, now: now) }
             } else {
                 Text("No data yet").font(.caption).foregroundStyle(.secondary)
+            }
+            if let onManualSync {
+                Button {
+                    guard !syncing else { return }
+                    syncing = true
+                    Task { await onManualSync(); syncing = false }
+                } label: {
+                    Label(syncing ? "Syncing…" : Format.relativeSync(from: account.lastSyncedAt, now: now),
+                          systemImage: syncing ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(syncing)
+                .help("Click to sync this account now")
             }
         }.padding(.vertical, 4)
     }

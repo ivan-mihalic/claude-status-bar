@@ -14,7 +14,8 @@ public struct DashboardView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
                     ForEach(env.appState.accounts) { acct in
                         VStack(alignment: .leading, spacing: 8) {
-                            AccountRowView(account: acct, now: ctx.date)
+                            AccountRowView(account: acct, now: ctx.date,
+                                           onManualSync: { await env.syncCoordinator.syncNow(acct.id) })
                             AccountEditFields(account: acct, manager: env.accountManager)
                             HStack {
                                 Stepper("Every \(acct.syncInterval)s",
