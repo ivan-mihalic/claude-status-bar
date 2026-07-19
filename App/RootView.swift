@@ -12,6 +12,7 @@ struct RootView: View {
     @Bindable var env: AppEnvironment
     let updater: SPUUpdater
     @Environment(AppRouter.self) private var router
+    @AppStorage("didShowWelcome") private var didShowWelcome = false
 
     var body: some View {
         @Bindable var router = router
@@ -37,6 +38,12 @@ struct RootView: View {
         } detail: {
             detail(for: router.selection)
                 .frame(minWidth: 640, minHeight: 460)
+        }
+        .sheet(isPresented: Binding(
+            get: { !didShowWelcome },
+            set: { if !$0 { didShowWelcome = true } })
+        ) {
+            WelcomeView()
         }
     }
 
