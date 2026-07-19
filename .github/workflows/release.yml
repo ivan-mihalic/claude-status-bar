@@ -18,10 +18,44 @@ jobs:
       - name: Install XcodeGen + create-dmg
         run: brew install xcodegen create-dmg
 
-      - name: Package unsigned .app
+      - name: Set up signing + notarization
+        env:
+          CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PW="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          CERT="$RUNNER_TEMP/cert.p12"; printf '%s' "$CERT_P12_BASE64" | base64 -d > "$CERT"
+          security import "$CERT" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT"
+          printf '%s' "$AC_API_KEY_P8_BASE64" | base64 -d > "$RUNNER_TEMP/AuthKey.p8"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Package (signed + notarized)
+        env:
+          # Prefix match: the temp keychain holds exactly one Developer ID Application
+          # identity, so codesign resolves it without needing the signer's exact name.
+          SIGN_IDENTITY: "Developer ID Application"
+          NOTARIZE: "1"
+          AC_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ./scripts/package.sh "$VERSION"
+
+      - name: Clean up signing material
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
 
       - name: Sign appcast (EdDSA)
         env:
