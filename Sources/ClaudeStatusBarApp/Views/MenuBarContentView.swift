@@ -22,7 +22,9 @@ public struct MenuBarContentView: View {
     }
 
     public var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+        // 60s cadence: every relative time shown here (reset countdowns, "Synced N min
+        // ago") is minute-granular, so a per-second tick only wasted re-renders.
+        TimelineView(.periodic(from: .now, by: 60)) { ctx in
             VStack(alignment: .leading, spacing: 8) {
                 if let err = env.appState.lastError {
                     HStack(alignment: .top) {

@@ -9,7 +9,8 @@ public struct DashboardView: View {
     public init(env: AppEnvironment) { self.env = env }
 
     public var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+        // 60s cadence: reset countdowns and "Synced N min ago" are minute-granular.
+        TimelineView(.periodic(from: .now, by: 60)) { ctx in
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
                     ForEach(env.appState.accounts) { acct in
