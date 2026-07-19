@@ -16,10 +16,11 @@ but for every account you connect, always visible in your menu bar.
 - **Per-account sync interval** (default 5 min, minimum 1 min) with automatic 429 back-off.
 - **Self-updating** via [Sparkle](https://sparkle-project.org) — no Mac App Store.
 
-> **Status:** functional; unsigned (no Apple Developer account). Data comes from an
-> **undocumented, reverse-engineered** Anthropic endpoint (`/api/oauth/usage`) — it works
-> today but Anthropic could change it at any time. You monitor **your own** accounts at your
-> own risk.
+> **Status:** functional; **signed with a Developer ID Application certificate, Hardened
+> Runtime, notarized and stapled** by Apple — see [`SECURITY.md`](SECURITY.md) for how to
+> verify that yourself. Data comes from an **undocumented, reverse-engineered** Anthropic
+> endpoint (`/api/oauth/usage`) — it works today but Anthropic could change it at any time.
+> You monitor **your own** accounts at your own risk.
 
 ---
 
@@ -35,22 +36,17 @@ but for every account you connect, always visible in your menu bar.
    [**Releases**](https://github.com/ivan-mihalic/claude-status-bar/releases) page.
 2. Open the `.dmg` and drag **`ClaudeStatusBar.app`** onto the **Applications** shortcut.
    (A `.zip` is also attached to each release if you prefer.)
-3. **First launch — get past Gatekeeper (one time).** The app is ad-hoc signed but **not
-   notarized** by Apple (no paid Developer account), so macOS shows a scary *"unidentified
-   developer / may be malware"* dialog on first open. It is **not** actually malware — this is
-   simply how macOS treats every un-notarized download. Do one of:
-   - **Terminal (cleanest):** `xattr -dr com.apple.quarantine /Applications/ClaudeStatusBar.app`, then open normally, **or**
-   - **System Settings → Privacy & Security** → scroll to the blocked-app notice → **Open
-     Anyway** (macOS 15 Sequoia removed the old right-click → Open shortcut for un-notarized apps).
-
-   You only do this **once**. Sparkle-delivered updates afterwards install without re-prompting.
+3. **First launch.** The app is signed with a **Developer ID Application** certificate and
+   **notarized by Apple**, so opening it shows only the standard confirmation dialog macOS
+   shows for any notarized, verified-developer app (an **Open**/Cancel choice, not an
+   "unidentified developer" block) — click **Open**. No quarantine workaround or Privacy &
+   Security detour needed. See [`SECURITY.md`](SECURITY.md) for how to verify the
+   signature/notarization yourself (`codesign -dvvv`, `spctl -a -vv`).
 4. It runs as a **menu-bar app** (no Dock icon by default) — look for the **gauge icon** in
    the top-right of your menu bar. You can turn on a Dock icon in **Settings → Show icon in Dock**.
 
-> **Prefer zero Gatekeeper prompts?** Build it yourself ([below](#build-from-source)) — a
-> locally built app carries no quarantine flag and launches with no warning at all.
-
-See [`INSTALL.md`](INSTALL.md) for the short version.
+See [`INSTALL.md`](INSTALL.md) for the short version, or [`SECURITY.md`](SECURITY.md) for the
+full signing/sandbox/network/data-storage rundown.
 
 ## Build from source
 
@@ -88,14 +84,18 @@ open build/Build/Products/Release/ClaudeStatusBar.app
 
 ### Updates
 The app checks for updates via **Sparkle** and has a **Check for Updates…** button in the
-menu-bar popover. Updates are **EdDSA-signed**; after the one-time first-launch step,
-Sparkle-delivered updates install without the Gatekeeper prompt.
+menu-bar popover. Update archives are **EdDSA-signed** (separate from Apple's notarization —
+see [`SECURITY.md`](SECURITY.md#update-integrity-sparkle--eddsa)); Sparkle verifies that
+signature before installing anything.
 
-> Unsigned builds may re-prompt for Keychain access after an update (the binary signature
-> changes) — click **Always Allow**.
+> If you're upgrading from a version of the app that predated App Sandboxing, you'll need to
+> **re-add your accounts once** — see [`SECURITY.md`](SECURITY.md#upgrading-from-a-pre-sandbox-install).
 
 ## Privacy & security
 
+- The app runs under the **full App Sandbox**, with only three entitlements declared
+  (network client + Sparkle's own scoped XPC access) and **no file-access entitlement of any
+  kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
 - Each account uses the **app's own independent OAuth grant**. Importing from Claude Code
@@ -103,6 +103,10 @@ Sparkle-delivered updates install without the Gatekeeper prompt.
   can't log you out of the `claude` CLI).
 - The app talks only to `claude.ai` (login), the OAuth token host, and
   `api.anthropic.com/api/oauth/usage` (read-only usage polling).
+
+See [`SECURITY.md`](SECURITY.md) for the full breakdown — signing/notarization verification
+commands, the exact entitlements and why each exists, every network endpoint contacted, and
+where data is stored.
 
 ## Development
 
