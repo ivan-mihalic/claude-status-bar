@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Full App Sandbox (App Store-grade isolation). -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <!-- Outgoing HTTPS only: Anthropic usage API, OAuth token host, Sparkle appcast + update download. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Sparkle XPC communication, scoped to Sparkle's own Mach service names. -->
+    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <array>
+        <string>cz.mihalic.claude-status-bar-spks</string>
+        <string>cz.mihalic.claude-status-bar-spki</string>
+    </array>
+</dict>
+</plist>
