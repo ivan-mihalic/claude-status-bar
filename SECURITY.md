@@ -42,7 +42,9 @@ three entitlements — nothing else is requested:
 1. **`com.apple.security.app-sandbox`** — turns on the sandbox itself. Without any file-access
    entitlements alongside it (see below), the process cannot read or write outside its own
    sandbox container, cannot browse or open arbitrary files on your Mac, and cannot read another
-   app's data or Keychain items (including Claude Code's own config/token files).
+   app's data. Keychain access is isolated by a separate mechanism the sandbox also enforces —
+   **keychain-access-groups** — which confines the app to its own group, so it cannot read
+   another app's Keychain items (including Claude Code's own token) either.
 2. **`com.apple.security.network.client`** — allows outgoing network *client* connections only
    (no listening sockets, no server capability). This is what lets the app reach the Anthropic
    usage API, the OAuth token host, and Sparkle's appcast/update download — see
@@ -60,8 +62,8 @@ your files, cannot see other apps' containers, and cannot read Claude Code's loc
 
 ## Network endpoints contacted
 
-The app only ever talks to three hosts, all over HTTPS, all part of the Anthropic/Claude product
-surface:
+The app only ever contacts Anthropic/Claude-product hosts, plus its own Sparkle update host, all
+over HTTPS:
 
 - **`claude.ai`** (`https://claude.ai/oauth/authorize`) — where your **default browser** (not an
   embedded webview) opens for the OAuth sign-in itself, when you click **Sign in with Claude…**.
@@ -86,9 +88,9 @@ covered by the same `network.client` entitlement.
   (`Sources/ClaudeStatusBarCore/Storage/KeychainTokenStore.swift`) as a generic-password item
   per account, accessible only after you've unlocked your Mac. Tokens are never written to disk
   in plaintext, never logged, and never displayed anywhere in the UI.
-- **Account metadata** (display name, email, per-account sync settings, and the last-fetched
-  usage snapshot — **no tokens**) is persisted as `accounts.json` inside the app's own sandbox
-  container
+- **Account metadata** — a label (typically the account email), account status, the
+  last-fetched usage snapshot, and UI preferences — **never any token** — is persisted as
+  `accounts.json` inside the app's own sandbox container
   (`~/Library/Containers/cz.mihalic.claude-status-bar/Data/Library/Application Support/cz.mihalic.claude-status-bar/accounts.json`),
   written by `Sources/ClaudeStatusBarCore/Storage/SnapshotStore.swift`. This file contains no
   secrets, and it's not reachable by other sandboxed apps.

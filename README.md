@@ -66,12 +66,10 @@ open build/Build/Products/Release/ClaudeStatusBar.app
 
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
-2. Optionally click **Use my Claude Code account** to pre-fill the email from your local
-   Claude Code login (it only reads the email — the app logs in with its own OAuth grant).
-3. Click **Sign in with Claude…** → a browser opens → sign in.
-4. Copy the authorization **code** shown on the callback page, paste it into the app, and
+2. Click **Sign in with Claude…** → a browser opens → sign in.
+3. Copy the authorization **code** shown on the callback page, paste it into the app, and
    click **Connect**. Approve any Keychain prompt.
-5. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
+4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.
 
 ### Dashboard & settings
@@ -98,9 +96,8 @@ signature before installing anything.
   kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
-- Each account uses the **app's own independent OAuth grant**. Importing from Claude Code
-  only detects the account's email; it never reuses or refreshes Claude Code's token (so it
-  can't log you out of the `claude` CLI).
+- Each account uses the **app's own independent OAuth grant**; it never touches Claude Code's
+  local session or token (so it can't log you out of the `claude` CLI).
 - The app talks only to `claude.ai` (login), the OAuth token host, and
   `api.anthropic.com/api/oauth/usage` (read-only usage polling).
 
