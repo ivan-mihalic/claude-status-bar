@@ -3,6 +3,9 @@ set -euo pipefail
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 VERSION="${1:?usage: package.sh <version>}"
 IDENTITY="${SIGN_IDENTITY:--}"
+if [ "${NOTARIZE:-0}" = "1" ] && [ "$IDENTITY" = "-" ]; then
+  echo "NOTARIZE=1 requires a real SIGN_IDENTITY (Developer ID)"; exit 1
+fi
 ENT="App/ClaudeStatusBar.entitlements"
 rm -rf build dist && mkdir -p dist
 xcodegen generate
@@ -17,14 +20,14 @@ rm -rf "$FW/Versions/B/XPCServices/Downloader.xpc"
 
 # Timestamp only with a real identity (ad-hoc cannot timestamp).
 if [ "$IDENTITY" = "-" ]; then TS=(); else TS=(--timestamp); fi
-sign() { codesign -f -o runtime "${TS[@]}" -s "$IDENTITY" "$@"; }
+sign() { codesign -f -o runtime ${TS[@]+"${TS[@]}"} -s "$IDENTITY" "$@"; }
 
 # Sign inside-out; app last with entitlements. NEVER --deep.
 sign "$FW/Versions/B/XPCServices/Installer.xpc"
 sign "$FW/Versions/B/Autoupdate"
 sign "$FW/Versions/B/Updater.app"
 sign "$FW"
-codesign -f -o runtime "${TS[@]}" --entitlements "$ENT" -s "$IDENTITY" "$APP"
+codesign -f -o runtime ${TS[@]+"${TS[@]}"} --entitlements "$ENT" -s "$IDENTITY" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
 # DMG (volume icon + drag-to-Applications) — build from the signed app.
