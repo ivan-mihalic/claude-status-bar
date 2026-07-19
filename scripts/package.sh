@@ -30,7 +30,20 @@ sign "$FW"
 codesign -f -o runtime ${TS[@]+"${TS[@]}"} --entitlements "$ENT" -s "$IDENTITY" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
-# DMG (volume icon + drag-to-Applications) — build from the signed app.
+# Notarize + staple the app BEFORE it's copied into the DMG, so the app a user
+# drags out of the DMG carries the notarization ticket (not just the external
+# $APP / the DMG itself). This is a separate submission from the DMG's below —
+# two submissions total, intended.
+if [ "${NOTARIZE:-0}" = "1" ]; then
+  APPZIP="$(mktemp -d)/app.zip"
+  ditto -c -k --keepParent "$APP" "$APPZIP"
+  xcrun notarytool submit "$APPZIP" --key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" \
+    --issuer "$AC_API_ISSUER_ID" --wait
+  xcrun stapler staple "$APP"
+fi
+
+# DMG (volume icon + drag-to-Applications) — build from the signed (and, when
+# notarized, already-stapled) app.
 ICONSET_TMP="$(mktemp -d)/AppIcon.iconset"; mkdir -p "$ICONSET_TMP"
 for pair in "16:16x16" "32:16x16@2x" "32:32x32" "64:32x32@2x" "128:128x128" \
             "256:128x128@2x" "256:256x256" "512:256x256@2x" "512:512x512" "1024:512x512@2x"; do
@@ -51,13 +64,13 @@ else
   hdiutil create -volname "Claude Status Bar" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 fi
 
-# Notarize the DMG (one submission notarizes the app's cdhash too), then staple both.
+# Notarize + staple the DMG itself (the app inside was already stapled above).
 if [ "${NOTARIZE:-0}" = "1" ]; then
   xcrun notarytool submit "$DMG" --key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" \
     --issuer "$AC_API_ISSUER_ID" --wait
   xcrun stapler staple "$DMG"
-  xcrun stapler staple "$APP"   # same cdhash, notarized via the DMG submission
   spctl -a -t open --context context:primary-signature -vv "$DMG" || true
+  spctl -a -t exec -vv "$APP" || true
 fi
 
 # Sparkle update zip contains the (stapled, when notarized) app.

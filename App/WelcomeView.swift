@@ -23,7 +23,7 @@ struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 8) {
                 bullet("Runs as a menu-bar app only — no Dock icon by default.")
                 bullet("Adding an account signs you in at claude.ai and prompts you for Keychain access.")
-                bullet("Network access is limited to claude.ai, the OAuth token host, and api.anthropic.com (usage lookups).")
+                bullet("Network access is limited to claude.ai, the OAuth token host, api.anthropic.com (usage lookups), and the app's own Sparkle update host (ivan-mihalic.github.io).")
                 bullet("Your account tokens are stored in the macOS Keychain, never on disk in plain text.")
                 bullet("If you used a previous version, this update changed the Keychain group — please re-add your accounts once.")
             }

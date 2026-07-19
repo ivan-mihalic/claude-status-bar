@@ -208,8 +208,13 @@ gh run watch <run-id> --repo ivan-mihalic/claude-status-bar
    ```
 2. Check Gatekeeper's verdict on the DMG itself:
    ```bash
-   spctl -a -t open -vv ClaudeStatusBar-*.dmg
+   spctl -a -t open --context context:primary-signature -vv ClaudeStatusBar-*.dmg
    ```
+   (The `--context context:primary-signature` flag matches what `scripts/package.sh` checks —
+   without it, `spctl -a -t open` evaluates the DMG under the default `context:lowest` policy
+   and can print a misleadingly different verdict, e.g. `rejected` even for a validly notarized
+   DMG.)
+
    Expect:
    ```
    ClaudeStatusBar-1.0.0.dmg: accepted

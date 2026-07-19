@@ -98,8 +98,9 @@ signature before installing anything.
   never logged, never shown in the UI.
 - Each account uses the **app's own independent OAuth grant**; it never touches Claude Code's
   local session or token (so it can't log you out of the `claude` CLI).
-- The app talks only to `claude.ai` (login), the OAuth token host, and
-  `api.anthropic.com/api/oauth/usage` (read-only usage polling).
+- The app talks only to `claude.ai` (login), the OAuth token host,
+  `api.anthropic.com/api/oauth/usage` (read-only usage polling), and its own Sparkle update
+  host (`ivan-mihalic.github.io`, GitHub Pages appcast/download).
 
 See [`SECURITY.md`](SECURITY.md) for the full breakdown — signing/notarization verification
 commands, the exact entitlements and why each exists, every network endpoint contacted, and

@@ -42,9 +42,11 @@ three entitlements — nothing else is requested:
 1. **`com.apple.security.app-sandbox`** — turns on the sandbox itself. Without any file-access
    entitlements alongside it (see below), the process cannot read or write outside its own
    sandbox container, cannot browse or open arbitrary files on your Mac, and cannot read another
-   app's data. Keychain access is isolated by a separate mechanism the sandbox also enforces —
-   **keychain-access-groups** — which confines the app to its own group, so it cannot read
-   another app's Keychain items (including Claude Code's own token) either.
+   app's data. Keychain access is also isolated: the app declares **no**
+   `keychain-access-groups` entitlement, so it falls back to the App Sandbox's **default**
+   per-app keychain access group (derived from its app ID), confining it to its own Keychain
+   items and preventing it from reading another app's items (including Claude Code's own
+   token).
 2. **`com.apple.security.network.client`** — allows outgoing network *client* connections only
    (no listening sockets, no server capability). This is what lets the app reach the Anthropic
    usage API, the OAuth token host, and Sparkle's appcast/update download — see
@@ -78,6 +80,12 @@ over HTTPS:
   other endpoint besides the standard OAuth bearer header — no telemetry, no analytics, no
   crash reporting.
 
+  In honest detail, the request also sends a `User-Agent: claude-code/1.0.0` header (spoofed —
+  this app is not Claude Code) and an `anthropic-beta: oauth-2025-04-20` header, both required
+  by this specific (undocumented) endpoint to accept OAuth-authenticated usage requests at all.
+  Neither header carries any user data or telemetry — they're endpoint-compatibility values,
+  not tracking.
+
 Sparkle (the self-update framework) additionally fetches its appcast and update archive from the
 project's own GitHub Pages host at first-launch/periodic update-check time; that traffic is
 covered by the same `network.client` entitlement.
@@ -102,6 +110,13 @@ changes the Keychain access group your tokens were saved under — the new sandb
 see the old Keychain items. **Re-add your accounts once** after updating; the app will re-run the
 OAuth login and everything works normally from then on. This is a one-time step, not a recurring
 issue.
+
+**Specifically for the 0.2.0 update:** download the fresh `.dmg` from
+[Releases](https://github.com/ivan-mihalic/claude-status-bar/releases) rather than relying on
+Sparkle's auto-update, because this release changes **both** the code-signing identity (ad-hoc →
+Developer ID Application) **and** the sandbox status at once — re-adding accounts once
+afterward is still required either way. Future 0.2.x → 0.2.y updates go back to normal Sparkle
+auto-updates.
 
 ## Update integrity (Sparkle / EdDSA)
 
