@@ -22,13 +22,9 @@ public final class AppEnvironment {
         let oauth = OAuthClient(http: http, endpoints: .production, config: .claudeCode, clock: clock)
         let login = OAuthLoginService(oauth: oauth, endpoints: .production, config: .claudeCode,
                                       tokenStore: tokenStore, opener: SystemBrowserOpener())
-        let importer = ClaudeCodeImporter(
-            secretReader: KeychainSecretReader(),
-            fileReader: DiskFileReader(),
-            configURL: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json"))
 
         self.accountManager = AccountManager(appState: appState, login: login, tokenStore: tokenStore,
-                                             snapshotStore: snapStore, importer: importer)
+                                             snapshotStore: snapStore)
         self.syncCoordinator = SyncCoordinator(
             appState: appState,
             engine: AccountSyncEngine(tokenStore: tokenStore, oauth: oauth,

@@ -14,8 +14,7 @@ private func makeManager(_ http: MockHTTPClient, store: TokenStore, snapURL: URL
                            clock: ManualClock(Date(timeIntervalSince1970: 0))),
         endpoints: .production, config: .claudeCode, tokenStore: store, opener: SpyBrowser())
     let mgr = AccountManager(appState: state, login: login, tokenStore: store,
-                             snapshotStore: SnapshotStore(fileURL: snapURL),
-                             importer: nil)
+                             snapshotStore: SnapshotStore(fileURL: snapURL))
     return (mgr, state)
 }
 

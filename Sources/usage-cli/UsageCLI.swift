@@ -28,25 +28,17 @@ struct UsageCLI {
         let http = URLSessionHTTPClient()
         let clock = SystemClock()
 
-        // 1) Import the account currently logged into Claude Code.
-        let importer = ClaudeCodeImporter(
-            secretReader: KeychainSecretReader(),
-            fileReader: DiskFileReader(),
-            configURL: FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".claude.json"))
-
-        let imported: ImportedAccount
-        do { imported = try importer.`import`() }
-        catch {
-            FileHandle.standardError.write(Data(Redaction.redact(
-                "Could not import Claude Code account: \(error)\n").utf8))
-            exit(1)
+        // 1) Read the bearer token from the environment.
+        guard let token = ProcessInfo.processInfo.environment["CLAUDE_OAUTH_TOKEN"], !token.isEmpty else {
+            FileHandle.standardError.write(Data("Set CLAUDE_OAUTH_TOKEN to an OAuth access token.\n".utf8))
+            exit(2)
         }
 
         // 2) Store token in-memory and run one sync.
         let store = InMemoryTokenStore()
         let id = UUID()
-        try? store.save(imported.bundle, for: id)
+        let bundle = TokenBundle(accessToken: token, refreshToken: "", expiresAt: Date.distantFuture, scopes: [])
+        try? store.save(bundle, for: id)
         let engine = AccountSyncEngine(
             tokenStore: store,
             oauth: OAuthClient(http: http, endpoints: .production,
@@ -54,7 +46,7 @@ struct UsageCLI {
             usage: UsageAPIClient(http: http),
             clock: clock)
 
-        let label = imported.email ?? "Claude Code"
+        let label = "Claude"
         switch await engine.syncOnce(accountID: id) {
         case .success(let snap): printSnapshot(label, snap)
         case .needsReauth:  print("\(label): needs re-auth (token invalid/expired).")

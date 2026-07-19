@@ -8,12 +8,11 @@ public final class AccountManager {
     private let login: OAuthLoginService
     private let tokenStore: TokenStore
     private let snapshotStore: SnapshotStore
-    private let importer: ClaudeCodeImporter?
 
     public init(appState: AppState, login: OAuthLoginService, tokenStore: TokenStore,
-                snapshotStore: SnapshotStore, importer: ClaudeCodeImporter?) {
+                snapshotStore: SnapshotStore) {
         self.appState = appState; self.login = login; self.tokenStore = tokenStore
-        self.snapshotStore = snapshotStore; self.importer = importer
+        self.snapshotStore = snapshotStore
     }
 
     public func beginAdd(label: String?) -> PendingLogin { login.begin() }
@@ -28,12 +27,6 @@ public final class AccountManager {
         appState.upsert(account)
         persist()
         return account
-    }
-
-    /// Best-effort: detect the email of the account currently logged into Claude Code,
-    /// to pre-fill the label. The token itself is NOT used — the app runs its own OAuth.
-    public func detectClaudeCodeEmail() -> String? {
-        (try? importer?.import())?.email
     }
 
     public func remove(_ id: UUID) {

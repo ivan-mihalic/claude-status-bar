@@ -16,9 +16,6 @@ public struct AddAccountView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Add a Claude account").font(.title3.bold())
-            Button("Use my Claude Code account") {
-                if let email = env.accountManager.detectClaudeCodeEmail() { label = email }
-            }
             TextField("Label (email)", text: $label)
             if pending == nil {
                 Button("Sign in with Claude…") { pending = env.accountManager.beginAdd(label: label.isEmpty ? nil : label) }
