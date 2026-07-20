@@ -5,14 +5,17 @@ multiple accounts at once** — the same numbers the Claude Code CLI `/usage` co
 but for every account you connect, always visible in your menu bar.
 
 - **Multi-account.** Connect as many Claude accounts as you like; each is authenticated by
-  the app's own browser OAuth login (it never reuses or touches Claude Code's own token).
+  the app's **own independent** browser OAuth login.
 - **Three usage windows per account:** current 5-hour **session**, current **week (all
   models)**, and current **week (premium model)** — each with a progress bar, percentage,
   and reset countdown.
 - **Menu-bar widget** with a color-coded gauge (green / amber / red by how close you are to
   a limit). Optionally show every account's percentages right in the menu bar, with a short
   per-account label.
-- **Dashboard** window with large bars, reset day/date/time, and per-account controls.
+- **One app window** with a sidebar — **Dashboard · Add Account · Settings · About** — so every
+  action is reachable from any screen, not just the menu-bar popover. The Dashboard shows large
+  bars, reset day/date/time, per-account controls, and a *"synced N min ago"* button to refresh
+  on demand.
 - **Per-account sync interval** (default 5 min, minimum 1 min) with automatic 429 back-off.
 - **Self-updating** via [Sparkle](https://sparkle-project.org) — no Mac App Store.
 
@@ -60,7 +63,9 @@ xcodebuild -project ClaudeStatusBar.xcodeproj -scheme ClaudeStatusBar \
 open build/Build/Products/Release/ClaudeStatusBar.app
 ```
 
-(There's also `scripts/package.sh <version>` which builds + zips a distributable `.app`.)
+(There's also `scripts/package.sh <version>`, which builds, signs — ad-hoc locally, or Developer
+ID + Apple notarization + stapling when the CI signing env vars are set — and produces a
+notarized `.dmg` plus a `.zip` for Sparkle.)
 
 ## Usage
 
@@ -72,22 +77,30 @@ open build/Build/Products/Release/ClaudeStatusBar.app
 4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.
 
-### Dashboard & settings
-- **Open Dashboard** — large bars, reset day/date/time, and per-account **Name**,
-  **Menu label** (prefix), **sync interval**, remove, and re-auth controls.
-- **Settings…** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
-  default; the app lives in the menu bar), and **Show each account's percentages in the menu
-  bar** (uses the per-account "Menu label" prefixes to tell accounts apart, e.g.
-  `W 20/19/5  P 30/40`).
+### The app window
+Click the menu-bar **gauge icon** for a popover — a quick glance at every account, plus buttons
+that open the app's **single window**. That window has a sidebar; only **one window is ever
+open**, and every action lives in it (you never need the popover for anything):
+
+- **Dashboard** — large usage bars, reset day/date/time, per-account **Name**, **Menu label**
+  (prefix), **sync interval**, a **"Synced N min ago"** button (click to sync that account now),
+  and remove / re-auth controls.
+- **Add Account** — the sign-in flow above.
+- **Settings** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
+  default; the app lives in the menu bar), and **Show each account's percentages in the menu bar**
+  (uses the per-account "Menu label" prefixes to tell accounts apart, e.g. `W 20/19/5  P 30/40`).
+- **About** — the app icon, version, a link to this repo, and **Check for Updates…**.
 
 ### Updates
-The app checks for updates via **Sparkle** and has a **Check for Updates…** button in the
-menu-bar popover. Update archives are **EdDSA-signed** (separate from Apple's notarization —
-see [`SECURITY.md`](SECURITY.md#update-integrity-sparkle--eddsa)); Sparkle verifies that
-signature before installing anything.
+The app checks for updates automatically via **Sparkle**; you can also trigger a check from
+**Check for Updates…** in the **About** window. Update archives are **EdDSA-signed** (separate
+from Apple's notarization — see [`SECURITY.md`](SECURITY.md#update-integrity-sparkle--eddsa));
+Sparkle verifies that signature before installing anything.
 
-> If you're upgrading from a version of the app that predated App Sandboxing, you'll need to
-> **re-add your accounts once** — see [`SECURITY.md`](SECURITY.md#upgrading-from-a-pre-sandbox-install).
+> **Upgrading from a pre-0.2.0 build** (the old unsigned, non-sandboxed versions)? Install 0.2.0
+> from the **DMG** on the Releases page rather than via a Sparkle auto-update — this release
+> changed both its signing identity and its sandbox status — then **re-add your accounts once**
+> (see [`SECURITY.md`](SECURITY.md#upgrading-from-a-pre-sandbox-install)).
 
 ## Privacy & security
 
