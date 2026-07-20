@@ -29,9 +29,9 @@ but for every account you connect, always visible in your menu bar.
 
 ## Requirements
 
-- **macOS 14 (Sonoma) or later.**
-- To build from source: **Xcode 16+** and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-  (`brew install xcodegen`).
+**macOS 14 (Sonoma) or later** — that's all you need to run it; just download a release below.
+(Building it yourself also needs Xcode 16+ — see [Build from source](#build-from-source) near the
+bottom.)
 
 ## Install (recommended: download a release)
 
@@ -50,22 +50,6 @@ but for every account you connect, always visible in your menu bar.
 
 See [`INSTALL.md`](INSTALL.md) for the short version, or [`SECURITY.md`](SECURITY.md) for the
 full signing/sandbox/network/data-storage rundown.
-
-## Build from source
-
-```bash
-git clone https://github.com/ivan-mihalic/claude-status-bar.git
-cd claude-status-bar
-brew install xcodegen
-xcodegen generate
-xcodebuild -project ClaudeStatusBar.xcodeproj -scheme ClaudeStatusBar \
-  -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
-open build/Build/Products/Release/ClaudeStatusBar.app
-```
-
-(There's also `scripts/package.sh <version>`, which builds, signs — ad-hoc locally, or Developer
-ID + Apple notarization + stapling when the CI signing env vars are set — and produces a
-notarized `.dmg` plus a `.zip` for Sparkle.)
 
 ## Usage
 
@@ -119,21 +103,33 @@ See [`SECURITY.md`](SECURITY.md) for the full breakdown — signing/notarization
 commands, the exact entitlements and why each exists, every network endpoint contacted, and
 where data is stored.
 
-## Development
+## Build from source
+
+Prefer to build it yourself (no download at all)? You need **Xcode 16+** and
+[XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-# Core + app logic tests (swift-testing) — run with the project's Swift 6 toolchain:
+git clone https://github.com/ivan-mihalic/claude-status-bar.git
+cd claude-status-bar
+brew install xcodegen
+
+# Run the tests (swift-testing, Swift 6 toolchain):
 swift test
 
-# Build the .app (needs Xcode):
-xcodegen generate && xcodebuild -project ClaudeStatusBar.xcodeproj \
-  -scheme ClaudeStatusBar -configuration Debug CODE_SIGNING_ALLOWED=NO build
+# Build + launch the app:
+xcodegen generate
+xcodebuild -project ClaudeStatusBar.xcodeproj -scheme ClaudeStatusBar \
+  -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+open build/Build/Products/Release/ClaudeStatusBar.app
 ```
 
-The codebase is split into a headless, unit-tested Swift package
-(`Sources/ClaudeStatusBarCore` + `Sources/ClaudeStatusBarApp`) and a thin SwiftUI app target
-(`App/`, generated into an Xcode project by `project.yml`). Design docs and implementation
-plans live under `docs/`.
+`scripts/package.sh <version>` builds, signs (ad-hoc locally, or Developer ID + Apple
+notarization + stapling when the CI signing env vars are set), and produces a notarized `.dmg`
+plus a `.zip` for Sparkle.
+
+The codebase is a headless, unit-tested Swift package (`Sources/ClaudeStatusBarCore` +
+`Sources/ClaudeStatusBarApp`) plus a thin SwiftUI app target (`App/`, generated into an Xcode
+project by `project.yml`). Design docs and implementation plans live under `docs/`.
 
 ## License
 

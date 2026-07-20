@@ -64,8 +64,10 @@ else
   hdiutil create -volname "Claude Status Bar" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 fi
 
-# Notarize + staple the DMG itself (the app inside was already stapled above).
+# Code-sign the DMG itself (so `spctl -a -t open` verifies it via a primary signature, not
+# only the stapled ticket), then notarize + staple. The app inside was already stapled above.
 if [ "${NOTARIZE:-0}" = "1" ]; then
+  codesign -f --timestamp -s "$IDENTITY" "$DMG"
   xcrun notarytool submit "$DMG" --key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" \
     --issuer "$AC_API_ISSUER_ID" --wait
   xcrun stapler staple "$DMG"

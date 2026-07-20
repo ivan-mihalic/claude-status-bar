@@ -23,8 +23,8 @@ top-right. You can enable a Dock icon in **Settings → Show icon in Dock**.
 > — see [`SECURITY.md`](SECURITY.md#upgrading-from-a-pre-sandbox-install).
 
 ## Updates
-The app self-updates via **Sparkle** ("Check for Updates…" in the menu-bar popover, plus
-automatic checks). Update archives are **EdDSA-signed** — a signature layer separate from
+The app self-updates via **Sparkle** (automatic checks, plus a **Check for Updates…** button in
+the **About** window). Update archives are **EdDSA-signed** — a signature layer separate from
 Apple's notarization — and Sparkle verifies it before installing anything (see
 [`SECURITY.md`](SECURITY.md#update-integrity-sparkle--eddsa)).
 
