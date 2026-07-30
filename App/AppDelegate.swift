@@ -10,5 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let showDock = UserDefaults.standard.bool(forKey: "showDockIcon")
         DockController.shared.configure(showDock: showDock)
+        ClickOutsideFocus.install()
     }
 }

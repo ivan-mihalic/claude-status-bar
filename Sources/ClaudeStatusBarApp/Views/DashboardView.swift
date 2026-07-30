@@ -12,7 +12,9 @@ public struct DashboardView: View {
         // 60s cadence: reset countdowns and "Synced N min ago" are minute-granular.
         TimelineView(.periodic(from: .now, by: 60)) { ctx in
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
+                // One full-width tile per row: accounts read top-to-bottom in the order
+                // the reorder chevrons set, and the usage bars get the whole width.
+                LazyVStack(spacing: 16) {
                     ForEach(Array(env.appState.accounts.enumerated()), id: \.element.id) { index, acct in
                         VStack(alignment: .leading, spacing: 8) {
                             AccountRowView(
@@ -43,6 +45,7 @@ public struct DashboardView: View {
                                     label: { Image(systemName: "trash") }
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding().background(.quaternary.opacity(0.3)).cornerRadius(12)
                     }
                 }.padding()
