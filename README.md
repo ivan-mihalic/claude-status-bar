@@ -30,8 +30,9 @@ but for every account you connect, always visible in your menu bar.
 ## Requirements
 
 **macOS 14 (Sonoma) or later** — that's all you need to run it; just download a release below.
-(Building it yourself also needs Xcode 16+ — see [Build from source](#build-from-source) near the
-bottom.)
+(Building it yourself needs **Xcode 26+**: releases are linked against the macOS 26 SDK so the
+app picks up the current window chrome on macOS 26, while still deploying back to macOS 14 — see
+[Build from source](#build-from-source) near the bottom.)
 
 ## Install (recommended: download a release)
 
@@ -68,7 +69,10 @@ open**, and every action lives in it (you never need the popover for anything):
 
 - **Dashboard** — large usage bars, reset day/date/time, per-account **Name**, **Menu label**
   (prefix), **sync interval**, a **"Synced N min ago"** button (click to sync that account now),
-  and remove / re-auth controls.
+  **▲ / ▼ chevrons** in each tile's header to reorder accounts (the order is remembered and is
+  also the order used in the popover and the menu-bar label), and remove / **Sign in again**
+  controls. **Sign in again** re-authenticates *that* account in place — it keeps the account's
+  name, menu label, interval and position instead of adding a second tile for the same person.
 - **Add Account** — the sign-in flow above.
 - **Settings** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
   default; the app lives in the menu bar), and **Show each account's percentages in the menu bar**
@@ -105,7 +109,8 @@ where data is stored.
 
 ## Build from source
 
-Prefer to build it yourself (no download at all)? You need **Xcode 16+** and
+Prefer to build it yourself (no download at all)? You need **Xcode 26+** (older Xcodes still
+compile, but the resulting binary gets the legacy pre-Tahoe window chrome on macOS 26) and
 [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash

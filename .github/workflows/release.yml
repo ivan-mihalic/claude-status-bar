@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-15
+    # macos-26 deliberately: the shipped binary must be linked against the macOS 26
+    # SDK. An app built against an older SDK is rendered by macOS 26 with the legacy
+    # (square-cornered, drop-shadowed) window chrome, which made the menu-bar popover
+    # look mis-sized on Tahoe. The deployment target stays macOS 14.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 

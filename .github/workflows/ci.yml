@@ -7,11 +7,10 @@ on:
 
 jobs:
   test:
-    # macos-15 ships Xcode 16 / Swift 6 by default, which swift-testing
-    # (`import Testing`, used throughout this package's test target) requires.
-    # A Swift 5.x toolchain fails to compile the test target entirely, so we
-    # pin the runner image rather than best-effort-selecting an Xcode version.
-    runs-on: macos-15
+    # Pin the image rather than best-effort-selecting an Xcode version: the test
+    # target uses swift-testing (`import Testing`), which a Swift 5.x toolchain
+    # cannot compile at all. macos-26 matches the runner the release job uses.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +29,9 @@ jobs:
   app-build:
     # Builds the macOS .app target (XcodeGen + xcodebuild) unsigned, so a
     # broken app target fails CI even though it isn't exercised by the SPM
-    # test suite above.
-    runs-on: macos-15
+    # test suite above. Same image as the release job, so CI compiles against
+    # the same (macOS 26) SDK that ships.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
