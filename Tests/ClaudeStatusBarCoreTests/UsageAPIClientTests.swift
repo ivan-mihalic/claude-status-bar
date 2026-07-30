@@ -34,7 +34,7 @@ private func body(_ name: String) throws -> Data {
 @Test func fetch_maps429ToRateLimited() async {
     let http = MockHTTPClient { _ in HTTPResponse(status: 429, headers: [:], body: Data()) }
     let client = UsageAPIClient(http: http, userAgent: "ua")
-    await #expect(throws: UsageAPIError.rateLimited) {
+    await #expect(throws: UsageAPIError.rateLimited(retryAfter: nil)) {
         _ = try await client.fetch(accessToken: "x", now: Date())
     }
 }

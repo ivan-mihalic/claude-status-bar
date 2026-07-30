@@ -22,4 +22,17 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         self.session = session; self.weekAll = weekAll
         self.weekPremium = weekPremium; self.fetchedAt = fetchedAt
     }
+
+    public var allWindows: [UsageWindow] { [session, weekAll] + weekPremium }
+
+    /// When the soonest maxed-out window frees up again, if any is maxed out and its
+    /// reset still lies ahead. Lets a rate-limited account wait for the actual reset
+    /// instead of hammering a backoff that just re-hits the same limit.
+    public func nextResetForExhaustedWindow(now: Date,
+                                            threshold: Double = 100) -> Date? {
+        allWindows
+            .filter { $0.utilization >= threshold && $0.resetsAt > now }
+            .map(\.resetsAt)
+            .min()
+    }
 }

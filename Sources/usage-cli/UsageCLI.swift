@@ -50,7 +50,9 @@ struct UsageCLI {
         switch await engine.syncOnce(accountID: id) {
         case .success(let snap): printSnapshot(label, snap)
         case .needsReauth:  print("\(label): needs re-auth (token invalid/expired).")
-        case .rateLimited:  print("\(label): rate-limited (429). Try again in a few minutes.")
+        case .rateLimited(let retryAfter):
+            let when = retryAfter.map { " Try again in \(Int($0))s." } ?? " Try again in a few minutes."
+            print("\(label): rate-limited.\(when)")
         case .offline:      print("\(label): offline / server error.")
         case .failed(let m):
             print("\(label): failed — \(Redaction.redact(m))")

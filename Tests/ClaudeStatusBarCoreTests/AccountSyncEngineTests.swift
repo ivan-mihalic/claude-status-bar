@@ -84,7 +84,7 @@ private final class Counter { var n = 0 }
         HTTPResponse(status: 429, headers: [:], body: Data()) }
     let e = engine(http, clock: clock, store: store)
     let out = await e.syncOnce(accountID: id)
-    #expect(out == .rateLimited)
+    #expect(out == .rateLimited(retryAfter: nil))
 }
 
 @Test func test_unauthorized_reactiveRefresh_succeeds() async throws {
@@ -117,7 +117,7 @@ private final class Counter { var n = 0 }
     #expect(try store.load(id)?.accessToken == "NEW") // reactive refresh persisted
 }
 
-@Test func test_unauthorized_reactiveRefreshFails_needsReauth() async throws {
+@Test func test_unauthorized_reactiveRefreshUnreachable_isOffline() async throws {
     let clock = ManualClock(.init(timeIntervalSince1970: 0))
     let store = InMemoryTokenStore()
     let id = UUID()
@@ -131,7 +131,9 @@ private final class Counter { var n = 0 }
     }
     let e = engine(http, clock: clock, store: store)
     let out = await e.syncOnce(accountID: id)
-    #expect(out == .needsReauth)
+    // A token host that is merely down says nothing about the grant — see
+    // syncOnce_refreshRejectedAsInvalidGrant_needsReauth for the real reauth case.
+    #expect(out == .offline)
 }
 
 @Test func test_serverError_returnsOffline() async throws {

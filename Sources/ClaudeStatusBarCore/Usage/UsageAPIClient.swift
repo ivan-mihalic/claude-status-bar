@@ -2,7 +2,16 @@
 import Foundation
 
 public enum UsageAPIError: Error, Equatable {
-    case unauthorized, rateLimited, server(Int), decoding
+    /// 401 — the access token is stale or invalid. The only status worth spending a
+    /// token refresh on.
+    case unauthorized
+    /// 403 — the request was understood and refused (Anthropic's `permission_error`).
+    /// A refresh cannot fix it, so it must never be mistaken for a sign-in problem.
+    case forbidden
+    /// 429 — with the server's requested wait, when it sent one.
+    case rateLimited(retryAfter: TimeInterval?)
+    case server(Int)
+    case decoding
 }
 
 public struct UsageAPIClient: Sendable {
@@ -32,9 +41,11 @@ public struct UsageAPIClient: Sendable {
                     .decode(UsageResponseDTO.self, from: resp.body)
                 return try UsageAdapter.normalize(dto, fetchedAt: now)
             } catch { throw UsageAPIError.decoding }
-        case 401, 403: throw UsageAPIError.unauthorized
-        case 429:      throw UsageAPIError.rateLimited
-        default:       throw UsageAPIError.server(resp.status)
+        case 401: throw UsageAPIError.unauthorized
+        case 403: throw UsageAPIError.forbidden
+        case 429: throw UsageAPIError.rateLimited(
+            retryAfter: RetryAfter.seconds(from: resp.headers, now: now))
+        default:  throw UsageAPIError.server(resp.status)
         }
     }
 }
