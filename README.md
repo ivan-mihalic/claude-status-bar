@@ -16,7 +16,10 @@ but for every account you connect, always visible in your menu bar.
   action is reachable from any screen, not just the menu-bar popover. The Dashboard shows large
   bars, reset day/date/time, per-account controls, and a *"synced N min ago"* button to refresh
   on demand.
-- **Per-account sync interval** (default 5 min, minimum 1 min) with automatic 429 back-off.
+- **Per-account sync interval** (default 5 min, minimum 1 min). Running into a usage limit
+  never asks you to sign in again: the app waits for the server's `Retry-After`, or for the
+  reset time of whichever window is actually maxed out, and picks itself back up once the
+  limit lifts (re-checking at least hourly).
 - **Self-updating** via [Sparkle](https://sparkle-project.org) — no Mac App Store.
 
 > **Status:** functional; **signed with a Developer ID Application certificate, Hardened
@@ -67,7 +70,8 @@ Click the menu-bar **gauge icon** for a popover — a quick glance at every acco
 that open the app's **single window**. That window has a sidebar; only **one window is ever
 open**, and every action lives in it (you never need the popover for anything):
 
-- **Dashboard** — large usage bars, reset day/date/time, per-account **Name**, **Menu label**
+- **Dashboard** — one full-width tile per account, stacked top to bottom: large usage bars,
+  reset day/date/time, per-account **Name**, **Menu label**
   (prefix), **sync interval**, a **"Synced N min ago"** button (click to sync that account now),
   **▲ / ▼ chevrons** in each tile's header to reorder accounts (the order is remembered and is
   also the order used in the popover and the menu-bar label), and remove / **Sign in again**
