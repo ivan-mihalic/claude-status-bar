@@ -13,12 +13,26 @@ public struct AddAccountView: View {
     @State private var connecting = false
     public init(env: AppEnvironment) { self.env = env }
 
+    /// Non-nil when the router sent us here from an account's "Sign in again":
+    /// the new token then replaces that account's token instead of adding a tile.
+    private var reauthAccount: Account? {
+        guard let id = router.reauthTarget else { return nil }
+        return env.appState.accounts.first { $0.id == id }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add a Claude account").font(.title3.bold())
-            TextField("Label (email)", text: $label)
+            if let acct = reauthAccount {
+                Text("Sign in again").font(.title3.bold())
+                Text("Reconnecting “\(acct.label)”. Its name, menu label, interval and "
+                     + "position stay as they are — only the expired credentials are replaced.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Add a Claude account").font(.title3.bold())
+                TextField("Label (email)", text: $label)
+            }
             if pending == nil {
-                Button("Sign in with Claude…") { pending = env.accountManager.beginAdd(label: label.isEmpty ? nil : label) }
+                Button("Sign in with Claude…") { pending = env.accountManager.beginLogin() }
                     .buttonStyle(.borderedProminent)
             } else {
                 Text("A browser opened. After signing in, copy the code shown on the callback page and paste it here.")
@@ -38,11 +52,15 @@ public struct AddAccountView: View {
         guard let pending else { return }
         connecting = true; defer { connecting = false }
         do {
-            _ = try await env.accountManager.finishAdd(pending, code: code,
-                    label: label.isEmpty ? "Claude account" : label, interval: defaultInterval)
-            env.syncCoordinator.start()   // (re)start loops incl. the new account
+            if let acct = reauthAccount {
+                try await env.accountManager.reauth(acct.id, pending, code: code)
+            } else {
+                _ = try await env.accountManager.finishAdd(pending, code: code,
+                        label: label.isEmpty ? "Claude account" : label, interval: defaultInterval)
+            }
+            env.syncCoordinator.start()   // (re)start loops incl. the new/refreshed account
             self.pending = nil; code = ""; label = ""; error = nil
-            router.selection = .dashboard   // back to the overview in the same window
+            router.show(.dashboard)       // back to the overview in the same window
         } catch { self.error = Redaction.redact("\(error)") }
     }
 }

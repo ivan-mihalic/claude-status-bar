@@ -16,7 +16,7 @@ public struct MenuBarContentView: View {
     // activate first so the window shows and the paste field is typable.
     // Every action targets the one "main" window and just picks its section.
     private func open(_ section: AppRouter.Section) {
-        router.selection = section
+        router.show(section)
         DockController.shared.prepareToShowWindow()
         openWindow(id: "main")
     }

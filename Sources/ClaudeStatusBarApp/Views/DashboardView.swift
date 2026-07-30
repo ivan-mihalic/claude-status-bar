@@ -13,10 +13,15 @@ public struct DashboardView: View {
         TimelineView(.periodic(from: .now, by: 60)) { ctx in
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
-                    ForEach(env.appState.accounts) { acct in
+                    ForEach(Array(env.appState.accounts.enumerated()), id: \.element.id) { index, acct in
                         VStack(alignment: .leading, spacing: 8) {
-                            AccountRowView(account: acct, now: ctx.date,
-                                           onManualSync: { await env.syncCoordinator.syncNow(acct.id) })
+                            AccountRowView(
+                                account: acct, now: ctx.date,
+                                onManualSync: { await env.syncCoordinator.syncNow(acct.id) },
+                                reorder: ReorderControls(
+                                    canMoveUp: index > 0,
+                                    canMoveDown: index < env.appState.accounts.count - 1,
+                                    move: { env.accountManager.move(acct.id, by: $0) }))
                             AccountEditFields(account: acct, manager: env.accountManager)
                             HStack {
                                 Stepper("Every \(acct.syncInterval)s",
@@ -27,7 +32,9 @@ public struct DashboardView: View {
                                     .font(.caption)
                                 Spacer()
                                 if acct.status == .needsReauth {
-                                    Button("Sign in again") { router.selection = .addAccount }
+                                    // Re-signs in to THIS account (same id) rather than
+                                    // adding a second tile for the same person.
+                                    Button("Sign in again") { router.showReauth(acct.id) }
                                 }
                                 Button(role: .destructive) {
                                     env.accountManager.remove(acct.id)

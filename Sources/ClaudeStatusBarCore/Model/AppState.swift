@@ -25,6 +25,21 @@ import Observation
         accounts.removeAll { $0.id == id }
     }
 
+    /// Shifts an account by `offset` positions (-1 = up, +1 = down). The array order
+    /// is the display order everywhere (dashboard tiles, popover rows, menu-bar label)
+    /// and is what `SnapshotStore` persists, so a move is all that "reordering" needs.
+    /// Returns false — and changes nothing — when the account is unknown or the move
+    /// would run off either end.
+    @discardableResult
+    public func move(_ id: UUID, by offset: Int) -> Bool {
+        guard let from = accounts.firstIndex(where: { $0.id == id }) else { return false }
+        let to = from + offset
+        guard to >= 0, to < accounts.count, to != from else { return false }
+        let account = accounts.remove(at: from)
+        accounts.insert(account, at: to)
+        return true
+    }
+
     /// Highest utilization across every window of every account (0...100).
     public var maxUtilization: Double? {
         let all = accounts.compactMap(\.lastSnapshot).flatMap { snap -> [Double] in

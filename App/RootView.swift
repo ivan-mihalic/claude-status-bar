@@ -18,7 +18,9 @@ struct RootView: View {
         @Bindable var router = router
         let selection = Binding<AppRouter.Section?>(
             get: { router.selection },
-            set: { if let s = $0 { router.selection = s } })
+            // Picking a section from the sidebar is always a plain navigation, so it
+            // also clears any pending "sign in again" target.
+            set: { if let s = $0 { router.show(s) } })
 
         NavigationSplitView {
             List(selection: selection) {
