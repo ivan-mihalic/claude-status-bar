@@ -19,7 +19,9 @@ but for every account you connect, always visible in your menu bar.
 - **Per-account sync interval** (default 5 min, minimum 1 min). Running into a usage limit
   never asks you to sign in again: the app waits for the server's `Retry-After`, or for the
   reset time of whichever window is actually maxed out, and picks itself back up once the
-  limit lifts (re-checking at least hourly).
+  limit lifts (re-checking at least hourly). Clicking *"synced N min ago"* always wins over
+  whatever the background poll is doing, so a manual sync can't be undone by a slow request
+  that started before it.
 - **Self-updating** via [Sparkle](https://sparkle-project.org) — no Mac App Store.
 
 > **Status:** functional; **signed with a Developer ID Application certificate, Hardened
