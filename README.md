@@ -67,12 +67,12 @@ full signing/sandbox/network/data-storage rundown.
 | Service | Sign-in | What you see |
 |---|---|---|
 | **Claude** | browser, then paste the code shown on the callback page | session, weekly and per-model windows |
-| **Codex** (ChatGPT plan) | browser; the redirect comes back to the app on its own | 5-hour and weekly windows |
+| **Codex** (ChatGPT plan) | *disabled for now* | the sign-in did not complete reliably; the rest of the Codex support is built and will return once that is fixed |
 | **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
 
-Codex sign-in needs the app to catch one redirect on `http://localhost:1455/auth/callback`,
-because that address is fixed by the OAuth client and cannot be changed. The listener runs only
-during the sign-in and is bound to the loopback interface; see [`SECURITY.md`](SECURITY.md).
+Only **Claude** accounts can be added today. Codex support (usage client, token handling and a
+loopback listener for its fixed `http://localhost:1455/auth/callback` redirect) is implemented and
+tested, but the sign-in is switched off until the browser round-trip works end to end.
 
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.

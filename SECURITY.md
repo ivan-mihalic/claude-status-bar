@@ -52,7 +52,8 @@ four entitlements — nothing else is requested:
    token hosts, and Sparkle's appcast/update download — see
    [Network endpoints](#network-endpoints-contacted) below.
 3. **`com.apple.security.network.server`** — added in 0.6.0 for **one** purpose: signing in to
-   a **Codex** account. That OAuth client's redirect URI is fixed at
+   a **Codex** account. *(Codex sign-in is disabled as of 0.6.1, so nothing currently uses this;
+   it is declared because the code path ships.)* That OAuth client's redirect URI is fixed at
    `http://localhost:1455/auth/callback` and cannot be changed by this app, so the browser can
    only hand the authorization code back through a local address. The listener
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
@@ -108,7 +109,8 @@ covered by the same `network.client` entitlement.
   `/status` limits from. The app sends only the bearer token; the response carries the account's
   rate-limit windows.
 
-No Codex traffic happens unless you add a Codex account.
+No Codex traffic happens unless you add a Codex account — and as of 0.6.1 Codex accounts
+cannot be added at all, so none of it runs.
 
 ## Where your data lives
 

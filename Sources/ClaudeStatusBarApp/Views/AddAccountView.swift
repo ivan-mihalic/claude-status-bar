@@ -30,14 +30,13 @@ public struct AddAccountView: View {
                     .font(.caption).foregroundStyle(.secondary)
             } else {
                 Text("Add an account").font(.title3.bold())
-                Picker("Service", selection: $provider) {
-                    ForEach(Provider.allCases) { p in
-                        Text(p.isSupported ? p.title : "\(p.title) (not available)").tag(p)
+                // Only one service can be signed in to today, so a one-row picker would be
+                // furniture. It comes back on its own the moment a second one is enabled.
+                if Provider.selectableCases.count > 1 {
+                    Picker("Service", selection: $provider) {
+                        ForEach(Provider.selectableCases) { Text($0.title).tag($0) }
                     }
-                }
-                .onChange(of: provider) { _, _ in pending = nil; code = ""; error = nil }
-                if let why = provider.unsupportedReason {
-                    Text(why).font(.caption).foregroundStyle(.secondary)
+                    .onChange(of: provider) { _, _ in pending = nil; code = ""; error = nil }
                 }
                 TextField("Label (email)", text: $label)
             }
