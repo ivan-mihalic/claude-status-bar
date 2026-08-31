@@ -46,7 +46,8 @@ private func top(_ m: ScreenMetrics, rings: Int, atRest: Bool) -> NotchLayout {
     let n = top(notched, rings: 3, atRest: true).collapsed
     let e = top(external, rings: 3, atRest: true).collapsed
     #expect(n.height > e.height)
-    #expect(n.height - e.height == 38 + NotchMetrics.topGap - NotchMetrics.collapsedPadding)
+    // Exactly the cutout: the padding either side of the rings is identical on both screens.
+    #expect(n.height - e.height == 38)
 }
 
 @Test func restingTopPanelIsSizedForItsRings() {

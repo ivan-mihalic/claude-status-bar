@@ -132,7 +132,11 @@ public struct NotchRootView: View {
                     // The container carries its own timing: opening it leads, closing it
                     // trails. See NotchAnimation.
                     .animation(NotchAnimation.container(expanded: expanded), value: expanded)
-                    .overlay {
+                    // Top-aligned for a row under the notch: `.overlay` centres by default,
+                    // so a top padding was being split either side of the content — extra
+                    // space above the rings, too little below, and hit-testing that no longer
+                    // matched where they were drawn.
+                    .overlay(alignment: layout.placement.ringsAreVertical ? .center : .top) {
                         // Always mounted, never conditionally inserted: a view that appears
                         // already visible has nothing to fade from, which is why the rings
                         // used to pop in ahead of the panel they live in.

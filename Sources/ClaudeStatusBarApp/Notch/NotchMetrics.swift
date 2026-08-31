@@ -16,8 +16,9 @@ public enum NotchMetrics {
     public static let collapsedRingSpacing: CGFloat = 8
     public static let padding: CGFloat = 14
     public static let collapsedPadding: CGFloat = 9
-    /// Gap between a hardware notch (which we must not draw inside) and the first ring.
-    public static let topGap: CGFloat = 8
+    // NOTE: there is deliberately no separate "gap under the notch". The cutout is extra
+    // clearance added on top of the ordinary padding, so a notched panel breathes exactly
+    // like any other one — see `contentTopOffset`.
 
     public static func ringDiameter(expanded: Bool) -> CGFloat {
         expanded ? ringDiameter : collapsedRingDiameter
@@ -82,8 +83,10 @@ public enum NotchMetrics {
     /// This is the whole hardware-versus-external distinction in one number: the pixels
     /// behind a real cutout do not exist, so content starts below it. A display without one
     /// gets ordinary padding — reserving notch-sized space there would just look like a bug.
+    /// The same padding on every screen, with the cutout added on the ones that have one:
+    /// the space above the rings then matches the space below them either way.
     public static func contentTopOffset(notchClearance: CGFloat, expanded: Bool) -> CGFloat {
-        notchClearance > 0 ? notchClearance + topGap : padding(expanded: expanded)
+        notchClearance + padding(expanded: expanded)
     }
 
     /// Resting size of a top-placed panel that shows its rings. Without that setting the
