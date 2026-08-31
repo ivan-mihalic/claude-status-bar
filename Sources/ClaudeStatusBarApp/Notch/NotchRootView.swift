@@ -81,6 +81,18 @@ public struct NotchRootView: View {
         }
     }
 
+    /// Rings and gear are only fully shown once the panel is open — or, on an edge, always.
+    private var contentVisible: Bool { expanded || showsRingsAtRest }
+
+    /// Content grows out of the edge the panel is anchored to, so the motion has a source.
+    private var contentAnchor: UnitPoint {
+        switch layout.placement {
+        case .topCenter: return .top
+        case .leftEdge:  return .leading
+        case .rightEdge: return .trailing
+        }
+    }
+
     /// The corner the popover unrolls from — always the side facing the panel.
     private var popoverAnchor: UnitPoint {
         switch layout.placement.popoverSide {
@@ -118,6 +130,9 @@ public struct NotchRootView: View {
                 NotchShape(flushEdge: layout.placement.flushEdge)
                     .fill(.black)
                     .frame(width: frames.shape.width, height: frames.shape.height)
+                    // The container carries its own timing: opening it leads, closing it
+                    // trails. See NotchAnimation.
+                    .animation(NotchAnimation.container(expanded: expanded), value: expanded)
                     .overlay {
                         if expanded || showsRingsAtRest {
                             ringStack(expanded: expanded)
@@ -126,6 +141,12 @@ public struct NotchRootView: View {
                                 // that isn't there.
                                 .padding(.top, layout.placement.ringsAreVertical
                                          ? 0 : layout.contentTopOffset(expanded: expanded))
+                                .opacity(contentVisible ? 1 : 0)
+                                .scaleEffect(contentVisible ? 1 : 0.84, anchor: contentAnchor)
+                                // Its own animation overrides the container's for this
+                                // subtree, which is the whole point of staging them.
+                                .animation(NotchAnimation.content(expanded: expanded),
+                                           value: expanded)
                         }
                     }
                     .position(centre(of: frames.shape, in: frames.window))
@@ -146,7 +167,6 @@ public struct NotchRootView: View {
                 }
             }
             .frame(width: frames.window.width, height: frames.window.height, alignment: .topLeading)
-            .animation(.spring(response: 0.30, dampingFraction: 0.80), value: expanded)
             .animation(.spring(response: 0.26, dampingFraction: 0.82), value: open)
         }
     }
