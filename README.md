@@ -16,12 +16,16 @@ but for every account you connect, always visible in your menu bar.
   action is reachable from any screen, not just the menu-bar popover. The Dashboard shows large
   bars, reset day/date/time, per-account controls, and a *"synced N min ago"* button to refresh
   on demand.
-- **Per-account sync interval** (default 5 min, minimum 1 min). Running into a usage limit
-  never asks you to sign in again: the app waits for the server's `Retry-After`, or for the
-  reset time of whichever window is actually maxed out, and picks itself back up once the
-  limit lifts (re-checking at least hourly). Clicking *"synced N min ago"* always wins over
-  whatever the background poll is doing, so a manual sync can't be undone by a slow request
-  that started before it.
+- **Sync that follows the number, not the clock.** You set a floor per account (default 5 min,
+  minimum 1 min); an account close to a limit is checked that often, a quiet one three to six
+  times less. Running into a usage limit never asks you to sign in again: the app waits for the
+  server's `Retry-After`, or for the reset time of whichever window is actually maxed out, and
+  picks itself back up once the limit lifts (re-checking at least hourly). Clicking
+  *"synced N min ago"* always wins over whatever the background poll is doing, so a manual sync
+  can't be undone by a slow request that started before it.
+- **Built to sit still.** Nothing polls while there is nothing to do: no system-wide mouse
+  watching, no timer behind the notch panel, and nothing fetched at all while your screen is
+  asleep — see [Energy](#energy).
 - **Stays signed in.** Refreshing an account's credentials is serialised, so two syncs
   running at once can't spend the same rotated token and lock each other out, and only a
   server response that actually says the grant is gone asks you to sign in again.
@@ -134,6 +138,21 @@ spells it out.
 The menu-bar icon is unaffected: the notch is a second view of the same data, not a replacement,
 and turning it off removes the panel immediately.
 
+### Energy
+A menu-bar app runs all day, so this one is built to cost nothing while it has nothing to do.
+
+| Situation | What the app does |
+|---|---|
+| **At rest** | it waits. The only things on a clock are the next sync and Sparkle's update check — nothing is watching the pointer, the screen or your account in between |
+| **Sync interval** | your setting is a **floor**. At **80 % or more** of a limit it syncs that often, at **20–80 %** three times less, **below 20 %** six times less — 5 / 15 / 30 min at the 5-minute default — capped at an hour so no account ever goes dark |
+| **Notch panel hover** | a tracking area on the panel's own window tells the app when the pointer arrives. The app is not woken by pointer movement anywhere else on screen |
+| **While a panel is open** | one half-second check, with a tolerance so macOS can fold it into other work — enough that a missed pointer exit can't leave the panel stuck open |
+| **On battery** | intervals double; in **Low Power Mode** they triple |
+| **Screen asleep** | polling stops completely and the panel leaves the compositor. Waking **fetches straight away** rather than just restarting a timer, so what you see is current |
+| **Disk** | the accounts file is rewritten only when something in it actually changed |
+
+None of this is a setting — it follows the machine's state on its own.
+
 ### Updates
 The app checks for updates automatically via **Sparkle**; you can also trigger a check from
 **Check for Updates…** in the **About** window. Update archives are **EdDSA-signed** (separate
@@ -147,13 +166,18 @@ Sparkle verifies that signature before installing anything.
 
 ## Privacy & security
 
-- The app runs under the **full App Sandbox**, with only three entitlements declared
-  (network client + Sparkle's own scoped XPC access) and **no file-access entitlement of any
-  kind** — it cannot read arbitrary files on your Mac or other apps' data.
+- The app runs under the **full App Sandbox**, with only four entitlements declared (the
+  sandbox itself, outgoing network client, one loopback listener used solely by the — currently
+  disabled — Codex sign-in, and Sparkle's own scoped XPC access) and **no file-access
+  entitlement of any kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
 - Each account uses the **app's own independent OAuth grant**; it never touches Claude Code's
   local session or token (so it can't log you out of the `claude` CLI).
+- **It does not watch your mouse.** Hover on the notch panel comes from a tracking area on the
+  app's **own window**, so the app is told when the pointer is over its panel and nothing else.
+  It installs **no system-wide event monitor** and never sees pointer or keyboard activity
+  elsewhere on your Mac.
 - The app talks only to `claude.ai` (login), the OAuth token host,
   `api.anthropic.com/api/oauth/usage` (read-only usage polling), and its own Sparkle update
   host (`ivan-mihalic.github.io`, GitHub Pages appcast/download).

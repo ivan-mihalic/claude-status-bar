@@ -26,7 +26,9 @@ public struct DashboardView: View {
                                     move: { env.accountManager.move(acct.id, by: $0) }))
                             AccountEditFields(account: acct, manager: env.accountManager)
                             HStack {
-                                Stepper("Every \(acct.syncInterval)s",
+                                // "At most" because the interval is a floor: a quiet account
+                                // is polled less often than this. See SyncScheduler.
+                                Stepper("At most every \(acct.syncInterval)s",
                                         value: Binding(
                                             get: { acct.syncInterval },
                                             set: { env.accountManager.setInterval(acct.id, seconds: max(60, $0)) }),

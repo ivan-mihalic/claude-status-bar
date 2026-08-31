@@ -10,7 +10,12 @@ public struct SettingsView: View {
 
     public var body: some View {
         Form {
-            Stepper("Default sync interval: \(defaultInterval)s", value: $defaultInterval, in: 60...3600, step: 60)
+            Stepper("Sync no more often than: \(defaultInterval)s",
+                    value: $defaultInterval, in: 60...3600, step: 60)
+            Text("A floor, not a fixed rate. An account close to a limit is checked this "
+                 + "often; a quiet one is checked less, and nothing is fetched at all while "
+                 + "the screen is asleep. On battery and in Low Power Mode the gaps grow.")
+                .font(.caption).foregroundStyle(.secondary)
             Toggle("Launch at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, on in
                     LaunchAtLogin.setEnabled(on)

@@ -84,9 +84,9 @@ over HTTPS:
   `https://platform.claude.com/v1/oauth/token`, falling back to
   `https://console.anthropic.com/v1/oauth/token` if the first host is unreachable (see
   `Sources/ClaudeStatusBarCore/OAuth/OAuthEndpoints.swift`).
-- **`api.anthropic.com/api/oauth/usage`** — polled periodically (per-account sync interval,
-  5 minutes by default) with a **read-only `GET`** request, authenticated with your account's
-  OAuth bearer token, to fetch your current session/week/premium-week usage numbers (see
+- **`api.anthropic.com/api/oauth/usage`** — polled periodically with a **read-only `GET`**
+  request, authenticated with your account's OAuth bearer token, to fetch your current
+  session/week/premium-week usage numbers (see
   `Sources/ClaudeStatusBarCore/Usage/UsageAPIClient.swift`). No data is ever sent to this or any
   other endpoint besides the standard OAuth bearer header — no telemetry, no analytics, no
   crash reporting.
@@ -96,6 +96,14 @@ over HTTPS:
   by this specific (undocumented) endpoint to accept OAuth-authenticated usage requests at all.
   Neither header carries any user data or telemetry — they're endpoint-compatibility values,
   not tracking.
+
+  **How often it is polled** is not a fixed rate. The per-account sync interval you set (5
+  minutes by default) is a **floor**: an account at 80 % or more of a limit is polled that
+  often, one between 20 % and 80 % three times less, one below 20 % six times less, capped at
+  one hour. On battery those gaps double, in Low Power Mode they triple, and **while the screen
+  is asleep the app stops polling entirely** — it fetches once on wake instead. In practice this
+  means fewer requests against your account than a fixed 5-minute timer would make (see
+  `Sources/ClaudeStatusBarCore/Sync/SyncScheduler.swift` and `.../Sync/EnergyPolicy.swift`).
 
 Sparkle (the self-update framework) additionally fetches its appcast and update archive from the
 project's own GitHub Pages host at first-launch/periodic update-check time; that traffic is
