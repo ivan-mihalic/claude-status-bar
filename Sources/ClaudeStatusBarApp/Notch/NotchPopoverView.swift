@@ -49,7 +49,16 @@ public struct NotchPopoverView: View {
                         .background(Capsule().fill(.white.opacity(0.15)))
                 }
                 Text(model.label).font(.system(size: 13, weight: .semibold))
-                Spacer()
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 8)
+                // Named, not just marked: the glyph on the ring is small and abstract, and a
+                // panel mixing services should say in words whose limits these are.
+                Text(model.provider.title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(.white.opacity(0.12)))
+                    .fixedSize()
             }
             .foregroundStyle(.white)
 
