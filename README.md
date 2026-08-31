@@ -62,6 +62,18 @@ full signing/sandbox/network/data-storage rundown.
 
 ## Usage
 
+### Providers
+
+| Service | Sign-in | What you see |
+|---|---|---|
+| **Claude** | browser, then paste the code shown on the callback page | session, weekly and per-model windows |
+| **Codex** (ChatGPT plan) | browser; the redirect comes back to the app on its own | 5-hour and weekly windows |
+| **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
+
+Codex sign-in needs the app to catch one redirect on `http://localhost:1455/auth/callback`,
+because that address is fixed by the OAuth client and cannot be changed. The listener runs only
+during the sign-in and is bound to the loopback interface; see [`SECURITY.md`](SECURITY.md).
+
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
 2. Click **Sign in with Claude…** → a browser opens → sign in.

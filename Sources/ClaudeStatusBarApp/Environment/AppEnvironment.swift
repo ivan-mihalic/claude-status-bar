@@ -19,16 +19,32 @@ public final class AppEnvironment {
         let snapStore = SnapshotStore(fileURL: SnapshotStore.defaultURL())
         self.snapshotStore = snapStore
 
-        let oauth = OAuthClient(http: http, endpoints: .production, config: .claudeCode, clock: clock)
-        let login = OAuthLoginService(oauth: oauth, endpoints: .production, config: .claudeCode,
-                                      tokenStore: tokenStore, opener: SystemBrowserOpener())
+        // One OAuth client per provider: each has its own token host and client id, and
+        // refreshing a grant against the wrong host fails in the one way that reads as
+        // "sign in again".
+        let anthropic = OAuthClient(http: http, endpoints: .production,
+                                    config: .claudeCode, clock: clock)
+        let openAI = OAuthClient(http: http, endpoints: .openAI, config: .codex, clock: clock)
+
+        let login = OAuthLoginService(
+            backends: [
+                .claude: LoginBackend(oauth: anthropic, endpoints: .production, config: .claudeCode),
+                .codex:  LoginBackend(oauth: openAI, endpoints: .openAI, config: .codex),
+            ],
+            tokenStore: tokenStore, opener: SystemBrowserOpener())
 
         self.accountManager = AccountManager(appState: appState, login: login, tokenStore: tokenStore,
                                              snapshotStore: snapStore)
         self.syncCoordinator = SyncCoordinator(
             appState: appState,
-            engine: AccountSyncEngine(tokenStore: tokenStore, oauth: oauth,
-                                      usage: UsageAPIClient(http: http), clock: clock),
+            engine: AccountSyncEngine(
+                backends: [
+                    .claude: ProviderBackend(tokenStore: tokenStore, oauth: anthropic,
+                                             usage: UsageAPIClient(http: http)),
+                    .codex:  ProviderBackend(tokenStore: tokenStore, oauth: openAI,
+                                             usage: CodexUsageAPIClient(http: http)),
+                ],
+                clock: clock),
             clock: clock, snapshotStore: snapStore)
     }
 

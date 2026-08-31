@@ -27,7 +27,10 @@ public final class SyncCoordinator {
         // started, not when it happened to come back.
         let mySeq = (issued[id] ?? 0) + 1
         issued[id] = mySeq
-        let outcome = await engine.syncOnce(accountID: id)
+        // The provider is read before the await: an account edited mid-flight must not have
+        // its numbers fetched from the wrong service.
+        let provider = appState.accounts.first { $0.id == id }?.effectiveProvider ?? .claude
+        let outcome = await engine.syncOnce(accountID: id, provider: provider)
         // Re-fetch after the await: the account may have been removed (or its
         // interval changed) while syncOnce was in flight — never resurrect a removed account.
         guard let account = appState.accounts.first(where: { $0.id == id }) else {

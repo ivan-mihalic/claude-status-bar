@@ -16,4 +16,14 @@ public struct OAuthConfig: Equatable, Sendable {
         scopes: ["org:create_api_key", "user:profile", "user:inference"],
         redirectURI: "https://console.anthropic.com/oauth/code/callback"
     )
+
+    /// The Codex CLI's own OAuth client. Its redirect is a fixed loopback address that cannot
+    /// be changed from here, which is why signing in to Codex needs a short-lived local
+    /// listener (and the `network.server` entitlement) while the Anthropic flow does not.
+    /// Values read out of the shipped `@openai/codex` binary on 2026-08-31.
+    public static let codex = OAuthConfig(
+        clientID: "app_EMoamEEZ73f0CkXaXp7hrann",
+        scopes: ["openid", "profile", "email", "offline_access"],
+        redirectURI: "http://localhost:1455/auth/callback"
+    )
 }

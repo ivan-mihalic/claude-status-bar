@@ -19,7 +19,7 @@ private func service(_ http: MockHTTPClient, _ store: TokenStore, _ browser: Spy
 @Test func begin_opensAuthorizeURLWithChallenge() {
     let browser = SpyBrowser()
     let svc = service(MockHTTPClient(), InMemoryTokenStore(), browser)
-    let pending = svc.begin()
+    let pending = svc.begin()!
     #expect(browser.opened.count == 1)
     let q = URLComponents(url: browser.opened[0], resolvingAgainstBaseURL: false)!.queryItems!
     #expect(q.contains { $0.name == "code_challenge" && $0.value == pending.pkce.challenge })
@@ -32,7 +32,7 @@ private func service(_ http: MockHTTPClient, _ store: TokenStore, _ browser: Spy
             body: Data(#"{"access_token":"AT","refresh_token":"RT","expires_in":28800,"scope":"user:profile"}"#.utf8))
     }
     let svc = service(http, store, SpyBrowser())
-    let pending = svc.begin()
+    let pending = svc.begin()!
     let id = UUID()
     let bundle = try await svc.complete(pending, code: "CODE#state=x", accountID: id)
     #expect(bundle.accessToken == "AT")

@@ -11,11 +11,33 @@ public enum SyncOutcome: Equatable {
     case failed(String)
 }
 
+/// One provider's half of a sync: who refreshes its grant, and where its numbers come from.
+///
+/// Bundled together because they must match — refreshing a ChatGPT grant against Anthropic's
+/// token host would fail in a way that reads as "sign in again", which is the most damaging
+/// wrong answer this app can give.
+public struct ProviderBackend: Sendable {
+    public let tokens: TokenRefreshCoordinator
+    public let usage: any UsageFetching
+
+    public init(tokens: TokenRefreshCoordinator, usage: any UsageFetching) {
+        self.tokens = tokens; self.usage = usage
+    }
+
+    public init(tokenStore: TokenStore, oauth: OAuthClient, usage: any UsageFetching) {
+        self.init(tokens: TokenRefreshCoordinator(oauth: oauth, store: tokenStore), usage: usage)
+    }
+}
+
 public struct AccountSyncEngine {
-    private let tokens: TokenRefreshCoordinator
-    private let usage: UsageAPIClient
+    private let backends: [Provider: ProviderBackend]
     private let clock: Clock
     private let refreshWindow: TimeInterval
+
+    public init(backends: [Provider: ProviderBackend], clock: Clock,
+                refreshWindow: TimeInterval = 300) {
+        self.backends = backends; self.clock = clock; self.refreshWindow = refreshWindow
+    }
 
     public init(tokenStore: TokenStore, oauth: OAuthClient,
                 usage: UsageAPIClient, clock: Clock,
@@ -26,18 +48,25 @@ public struct AccountSyncEngine {
 
     public init(tokens: TokenRefreshCoordinator, usage: UsageAPIClient,
                 clock: Clock, refreshWindow: TimeInterval = 300) {
-        self.tokens = tokens; self.usage = usage
-        self.clock = clock; self.refreshWindow = refreshWindow
+        self.init(backends: [.claude: ProviderBackend(tokens: tokens, usage: usage)],
+                  clock: clock, refreshWindow: refreshWindow)
     }
 
-    public func syncOnce(accountID: UUID) async -> SyncOutcome {
+    public func syncOnce(accountID: UUID, provider: Provider = .claude) async -> SyncOutcome {
+        // A provider with no backend is a configuration mistake, not a signed-out account:
+        // saying "sign in again" would send the user round a loop that cannot succeed.
+        guard let backend = backends[provider] else {
+            return .failed("No usage client configured for \(provider.title)")
+        }
+        let tokens = backend.tokens
+        let usage = backend.usage
         guard let bundle0 = await tokens.current(accountID) else {
             return .needsReauth
         }
         // Proactive refresh if near expiry.
         var bundle = bundle0
         if bundle.isExpiring(within: refreshWindow, now: clock.now()) {
-            switch await refresh(bundle, for: accountID) {
+            switch await refresh(bundle, for: accountID, tokens: tokens) {
             case .refreshed(let r):     bundle = r
             case .rejected:             return .needsReauth
             case .unreachable:          return .offline
@@ -51,7 +80,7 @@ public struct AccountSyncEngine {
             return .success(snap)
         } catch let e as UsageAPIError {
             if case .unauthorized = e {
-                switch await refresh(bundle, for: accountID) {
+                switch await refresh(bundle, for: accountID, tokens: tokens) {
                 case .refreshed(let refreshed):
                     do {
                         let snap = try await usage.fetch(
@@ -101,7 +130,8 @@ public struct AccountSyncEngine {
         case storeFailed(String)
     }
 
-    private func refresh(_ bundle: TokenBundle, for id: UUID) async -> RefreshResult {
+    private func refresh(_ bundle: TokenBundle, for id: UUID,
+                         tokens: TokenRefreshCoordinator) async -> RefreshResult {
         do {
             return .refreshed(try await tokens.refresh(bundle, for: id))
         } catch TokenRefreshCoordinator.Failure.rejected {

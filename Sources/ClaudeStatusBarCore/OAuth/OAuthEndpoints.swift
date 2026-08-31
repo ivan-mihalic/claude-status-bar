@@ -17,6 +17,11 @@ public struct OAuthEndpoints: Sendable {
         ]
     )
 
+    public static let openAI = OAuthEndpoints(
+        authorizeBase: URL(string: "https://auth.openai.com/oauth/authorize")!,
+        tokenHosts: [URL(string: "https://auth.openai.com/oauth/token")!]
+    )
+
     public func authorizeURL(config: OAuthConfig, pkce: PKCE, state: String) -> URL {
         var comps = URLComponents(url: authorizeBase, resolvingAgainstBaseURL: false)!
         comps.queryItems = [

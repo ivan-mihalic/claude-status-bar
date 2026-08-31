@@ -33,11 +33,11 @@ spctl -a -vv /Applications/ClaudeStatusBar.app
 
 Should print `accepted` and `source=Notarized Developer ID`.
 
-## App Sandbox — full isolation, three entitlements only
+## App Sandbox — full isolation, four entitlements only
 
 The app runs under the **full App Sandbox** (`com.apple.security.app-sandbox = true`), the same
 isolation model the Mac App Store requires. `App/ClaudeStatusBar.entitlements` declares exactly
-three entitlements — nothing else is requested:
+four entitlements — nothing else is requested:
 
 1. **`com.apple.security.app-sandbox`** — turns on the sandbox itself. Without any file-access
    entitlements alongside it (see below), the process cannot read or write outside its own
@@ -47,11 +47,21 @@ three entitlements — nothing else is requested:
    per-app keychain access group (derived from its app ID), confining it to its own Keychain
    items and preventing it from reading another app's items (including Claude Code's own
    token).
-2. **`com.apple.security.network.client`** — allows outgoing network *client* connections only
-   (no listening sockets, no server capability). This is what lets the app reach the Anthropic
-   usage API, the OAuth token host, and Sparkle's appcast/update download — see
+2. **`com.apple.security.network.client`** — allows outgoing network *client* connections.
+   This is what lets the app reach the Anthropic usage API, the Codex usage API, the OAuth
+   token hosts, and Sparkle's appcast/update download — see
    [Network endpoints](#network-endpoints-contacted) below.
-3. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
+3. **`com.apple.security.network.server`** — added in 0.6.0 for **one** purpose: signing in to
+   a **Codex** account. That OAuth client's redirect URI is fixed at
+   `http://localhost:1455/auth/callback` and cannot be changed by this app, so the browser can
+   only hand the authorization code back through a local address. The listener
+   (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
+   .loopback`), is started only when a Codex sign-in begins, answers a single request, and is
+   torn down as soon as the code arrives, the attempt is cancelled, or it times out (5 minutes).
+   It is never running at rest, and it is not used by the Anthropic sign-in, which shows the
+   code on a web page instead. If you only use Claude accounts, nothing in the app ever opens
+   a socket to listen on.
+4. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
    names — `cz.mihalic.claude-status-bar-spks` and `cz.mihalic.claude-status-bar-spki`. This is
    Sparkle's own, documented sandbox requirement: it lets the app talk to its bundled Sparkle
    **Installer XPC service** (which performs the actual privileged-free update install) over Mach
@@ -89,6 +99,16 @@ over HTTPS:
 Sparkle (the self-update framework) additionally fetches its appcast and update archive from the
 project's own GitHub Pages host at first-launch/periodic update-check time; that traffic is
 covered by the same `network.client` entitlement.
+
+**Codex accounts** (optional, only if you add one) additionally contact:
+
+- `https://auth.openai.com/oauth/authorize` and `/oauth/token` — the sign-in and token
+  exchange/refresh, using the Codex CLI's OAuth client and PKCE, exactly as the CLI does.
+- `https://chatgpt.com/backend-api/wham/usage` — the usage endpoint Codex CLI reads its own
+  `/status` limits from. The app sends only the bearer token; the response carries the account's
+  rate-limit windows.
+
+No Codex traffic happens unless you add a Codex account.
 
 ## Where your data lives
 

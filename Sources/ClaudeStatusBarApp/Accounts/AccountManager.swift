@@ -24,15 +24,33 @@ public final class AccountManager {
     /// Opens the browser and returns the pending PKCE login. Used both when adding a
     /// new account and when re-authenticating an existing one — the flow is identical
     /// up to the point where the exchanged token is filed under an account id.
-    public func beginLogin() -> PendingLogin { login.begin() }
+    /// `nil` when the app has no sign-in flow for that provider — a placeholder in the
+    /// `Provider` list, not a failure worth an error dialog.
+    public func beginLogin(provider: Provider = .claude) -> PendingLogin? {
+        login.begin(provider: provider)
+    }
+
+    /// Finishes a loopback sign-in (Codex) and files the account.
+    public func finishAdd(_ pending: PendingLogin, label: String,
+                          interval: Int = Account.intervalDefault) async throws -> Account {
+        let id = UUID()
+        _ = try await login.completeViaLoopback(pending, accountID: id)
+        return register(id: id, label: label, interval: interval, provider: pending.provider)
+    }
 
     public func finishAdd(_ pending: PendingLogin, code: String, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
         _ = try await login.complete(pending, code: code, accountID: id)
+        return register(id: id, label: label, interval: interval, provider: pending.provider)
+    }
+
+    private func register(id: UUID, label: String, interval: Int,
+                          provider: Provider) -> Account {
         let account = Account(id: id, label: label, accountUuid: nil,
                               syncInterval: max(60, interval), status: .never,
-                              lastSnapshot: nil, lastSyncedAt: nil)
+                              lastSnapshot: nil, lastSyncedAt: nil,
+                              provider: provider)
         appState.upsert(account)
         persist()
         return account
@@ -42,10 +60,23 @@ public final class AccountManager {
     /// one under the *same* account id, so the tile keeps its name, menu-bar prefix,
     /// interval and position instead of a duplicate appearing next to it.
     public func reauth(_ id: UUID, _ pending: PendingLogin, code: String) async throws {
+        try await reauth(id, pending) { try await login.complete(pending, code: code, accountID: id) }
+    }
+
+    /// Re-signs in a provider whose redirect lands on the loopback listener (Codex): there is
+    /// no code to paste, so the browser round-trip *is* the whole step.
+    public func reauth(_ id: UUID, _ pending: PendingLogin) async throws {
+        try await reauth(id, pending) {
+            try await login.completeViaLoopback(pending, accountID: id)
+        }
+    }
+
+    private func reauth(_ id: UUID, _ pending: PendingLogin,
+                        exchange: () async throws -> TokenBundle) async throws {
         guard appState.accounts.contains(where: { $0.id == id }) else {
             throw AccountError.unknownAccount
         }
-        _ = try await login.complete(pending, code: code, accountID: id)
+        _ = try await exchange()
         // Re-read after the await — the account may have been removed meanwhile.
         guard var account = appState.accounts.first(where: { $0.id == id }) else {
             try? tokenStore.delete(id)

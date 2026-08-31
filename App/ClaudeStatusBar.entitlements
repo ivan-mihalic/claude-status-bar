@@ -8,6 +8,13 @@
     <!-- Outgoing HTTPS only: Anthropic usage API, OAuth token host, Sparkle appcast + update download. -->
     <key>com.apple.security.network.client</key>
     <true/>
+    <!-- Incoming connections, for one purpose only: the Codex sign-in redirects to
+         http://localhost:1455/auth/callback, an address fixed by the OAuth client, so the
+         app must briefly accept that one loopback request. The listener is bound to the
+         loopback interface, started when a Codex sign-in begins and closed as soon as the
+         code arrives or the attempt times out. The Anthropic flow needs none of this. -->
+    <key>com.apple.security.network.server</key>
+    <true/>
     <!-- Sparkle XPC communication, scoped to Sparkle's own Mach service names. -->
     <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
     <array>

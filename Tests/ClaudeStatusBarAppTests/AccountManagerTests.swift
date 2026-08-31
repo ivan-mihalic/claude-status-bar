@@ -25,7 +25,7 @@ private func makeManager(_ http: MockHTTPClient, store: TokenStore, snapURL: URL
     let http = MockHTTPClient { _ in HTTPResponse(status: 200, headers: [:],
         body: Data(#"{"access_token":"AT","refresh_token":"RT","expires_in":28800,"scope":""}"#.utf8)) }
     let (mgr, state) = makeManager(http, store: store, snapURL: tmp)
-    let pending = mgr.beginLogin()
+    let pending = mgr.beginLogin()!
     let acct = try await mgr.finishAdd(pending, code: "CODE", label: "work@x")
     #expect(state.accounts.count == 1)
     #expect(acct.label == "work@x")
@@ -41,7 +41,7 @@ private func makeManager(_ http: MockHTTPClient, store: TokenStore, snapURL: URL
     let http = MockHTTPClient { _ in HTTPResponse(status: 200, headers: [:],
         body: Data(#"{"access_token":"AT","refresh_token":"RT","expires_in":28800,"scope":""}"#.utf8)) }
     let (mgr, _) = makeManager(http, store: store, snapURL: tmp)
-    let pending = mgr.beginLogin()
+    let pending = mgr.beginLogin()!
     let acct = try await mgr.finishAdd(pending, code: "CODE", label: "work@x", interval: 600)
     #expect(acct.syncInterval == 600)
 }
@@ -61,7 +61,7 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     let calls = Counter()
     let http = MockHTTPClient { _ in calls.n += 1; return tokenResponse(calls.n == 1 ? "AT1" : "AT2") }
     let (mgr, state) = makeManager(http, store: store, snapURL: tmp)
-    let acct = try await mgr.finishAdd(mgr.beginLogin(), code: "C1", label: "work@x", interval: 600)
+    let acct = try await mgr.finishAdd(mgr.beginLogin()!, code: "C1", label: "work@x", interval: 600)
     mgr.setPrefix(acct.id, "W:")
     // The account has since expired and shows "Sign in again".
     var stale = state.accounts[0]
@@ -69,7 +69,7 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     stale.lastSnapshot = nil
     state.upsert(stale)
 
-    try await mgr.reauth(acct.id, mgr.beginLogin(), code: "C2")
+    try await mgr.reauth(acct.id, mgr.beginLogin()!, code: "C2")
 
     #expect(state.accounts.count == 1)                       // no second tile
     #expect(state.accounts[0].id == acct.id)                 // same account…
@@ -89,7 +89,7 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     let (mgr, state) = makeManager(http, store: store, snapURL: tmp)
     let ghost = UUID()
     await #expect(throws: AccountError.unknownAccount) {
-        try await mgr.reauth(ghost, mgr.beginLogin(), code: "C")
+        try await mgr.reauth(ghost, mgr.beginLogin()!, code: "C")
     }
     #expect(state.accounts.isEmpty)
     #expect(try store.load(ghost) == nil)
@@ -100,8 +100,8 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     defer { try? FileManager.default.removeItem(at: tmp) }
     let http = MockHTTPClient { _ in tokenResponse("AT") }
     let (mgr, state) = makeManager(http, store: InMemoryTokenStore(), snapURL: tmp)
-    let a = try await mgr.finishAdd(mgr.beginLogin(), code: "C", label: "a")
-    let b = try await mgr.finishAdd(mgr.beginLogin(), code: "C", label: "b")
+    let a = try await mgr.finishAdd(mgr.beginLogin()!, code: "C", label: "a")
+    let b = try await mgr.finishAdd(mgr.beginLogin()!, code: "C", label: "b")
     _ = b
     mgr.move(a.id, by: 1)
     #expect(state.accounts.map(\.label) == ["b", "a"])
@@ -115,7 +115,7 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     let http = MockHTTPClient { _ in HTTPResponse(status: 200, headers: [:],
         body: Data(#"{"access_token":"AT","refresh_token":"RT","expires_in":28800,"scope":""}"#.utf8)) }
     let (mgr, state) = makeManager(http, store: store, snapURL: tmp)
-    let acct = try await mgr.finishAdd(mgr.beginLogin(), code: "C", label: "x")
+    let acct = try await mgr.finishAdd(mgr.beginLogin()!, code: "C", label: "x")
     mgr.remove(acct.id)
     #expect(state.accounts.isEmpty)
     #expect(try store.load(acct.id) == nil)
