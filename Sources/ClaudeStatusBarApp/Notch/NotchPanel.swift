@@ -15,11 +15,12 @@ public final class NotchHostingView<Content: View>: NSHostingView<Content> {
     /// Current opaque region, in CoreGraphics (bottom-left origin) coordinates of this view.
     /// Set by the controller whenever the panel expands or collapses.
     public var interactivePath: CGPath?
-    /// Called when the pointer enters or leaves `interactivePath`.
-    public var onHoverInsideShape: ((Bool) -> Void)?
+    /// Called with the pointer position in this view's CoreGraphics (bottom-left origin)
+    /// coordinates, or `nil` when the pointer leaves the window. The controller decides what
+    /// that means — expand, collapse, or open a ring's popover.
+    public var onMouseMoved: ((CGPoint?) -> Void)?
 
     private var tracking: NSTrackingArea?
-    private var inside = false
 
     public required init(rootView: Content) {
         super.init(rootView: rootView)
@@ -32,11 +33,6 @@ public final class NotchHostingView<Content: View>: NSHostingView<Content> {
     /// flipped (top-left origin) geometry `NSHostingView` uses.
     private func pathPoint(_ local: NSPoint) -> CGPoint {
         isFlipped ? CGPoint(x: local.x, y: bounds.height - local.y) : CGPoint(x: local.x, y: local.y)
-    }
-
-    private func containsInShape(_ pointInWindow: NSPoint) -> Bool {
-        guard let path = interactivePath else { return false }
-        return path.contains(pathPoint(convert(pointInWindow, from: nil)))
     }
 
     public override func hitTest(_ point: NSPoint) -> NSView? {
@@ -57,18 +53,12 @@ public final class NotchHostingView<Content: View>: NSHostingView<Content> {
         tracking = area
     }
 
-    public override func mouseEntered(with event: NSEvent) { updateHover(event) }
-    public override func mouseMoved(with event: NSEvent) { updateHover(event) }
-    public override func mouseExited(with event: NSEvent) { setInside(false) }
+    public override func mouseEntered(with event: NSEvent) { report(event) }
+    public override func mouseMoved(with event: NSEvent) { report(event) }
+    public override func mouseExited(with event: NSEvent) { onMouseMoved?(nil) }
 
-    private func updateHover(_ event: NSEvent) {
-        setInside(containsInShape(event.locationInWindow))
-    }
-
-    private func setInside(_ value: Bool) {
-        guard value != inside else { return }
-        inside = value
-        onHoverInsideShape?(value)
+    private func report(_ event: NSEvent) {
+        onMouseMoved?(pathPoint(convert(event.locationInWindow, from: nil)))
     }
 }
 

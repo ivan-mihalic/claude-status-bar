@@ -10,6 +10,8 @@ struct ClaudeStatusBarMain: App {
     @State private var router = AppRouter()
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @AppStorage("showNotchPanel") private var showNotchPanel = false
+    @AppStorage("notchPlacement") private var notchPlacement = NotchPlacement.topCenter.rawValue
+    @AppStorage("notchEdgeOffsetPercent") private var notchEdgeOffset = 50.0
     @Environment(\.openWindow) private var openWindow
     @State private var notch: NotchWindowController?
     private let updaterUIDelegate = UpdaterUIDelegate()
@@ -38,7 +40,17 @@ struct ClaudeStatusBarMain: App {
                 DockController.shared.prepareToShowWindow()
                 openWindow(id: "main")
             }
+            controller.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
+                                    edgeOffsetPercent: notchEdgeOffset)
             controller.setEnabled(on)
+        }
+        .onChange(of: notchPlacement) { _, _ in
+            notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
+                                edgeOffsetPercent: notchEdgeOffset)
+        }
+        .onChange(of: notchEdgeOffset) { _, _ in
+            notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
+                                edgeOffsetPercent: notchEdgeOffset)
         }
 
         // A single window (not a WindowGroup) → at most one app window ever. Its

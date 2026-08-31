@@ -3,7 +3,7 @@ import CoreGraphics
 @testable import ClaudeStatusBarApp
 
 private let shapeRect = CGRect(x: 0, y: 0, width: 200, height: 100)
-private let shape = NotchShape(topRadius: 8, bottomRadius: 20)
+private let shape = NotchShape(flushEdge: .top, cornerRadius: 20)
 
 @Test func path_staysInsideItsRect() {
     #expect(shape.cgPath(in: shapeRect).boundingBox.width <= shapeRect.width)
@@ -27,6 +27,19 @@ private let shape = NotchShape(topRadius: 8, bottomRadius: 20)
 }
 
 @Test func zeroRadii_giveAPlainRectangle() {
-    let square = NotchShape(topRadius: 0, bottomRadius: 0).cgPath(in: shapeRect)
+    let square = NotchShape(flushEdge: .top, cornerRadius: 0).cgPath(in: shapeRect)
     #expect(square.contains(CGPoint(x: 0.5, y: 0.5)))
+}
+
+@Test func flushEdge_keepsItsOwnCornersSquare() {
+    // Whichever edge touches the bezel must stay square, or a sliver of wallpaper shows
+    // between the panel and the screen edge.
+    let leading = NotchShape(flushEdge: .leading, cornerRadius: 20).cgPath(in: shapeRect)
+    #expect(leading.contains(CGPoint(x: 0.5, y: 0.5)))
+    #expect(leading.contains(CGPoint(x: 0.5, y: shapeRect.maxY - 0.5)))
+    #expect(!leading.contains(CGPoint(x: shapeRect.maxX - 0.5, y: 0.5)))
+
+    let trailing = NotchShape(flushEdge: .trailing, cornerRadius: 20).cgPath(in: shapeRect)
+    #expect(trailing.contains(CGPoint(x: shapeRect.maxX - 0.5, y: 0.5)))
+    #expect(!trailing.contains(CGPoint(x: 0.5, y: 0.5)))
 }
