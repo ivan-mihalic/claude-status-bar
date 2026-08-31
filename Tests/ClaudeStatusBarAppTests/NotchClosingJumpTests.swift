@@ -86,3 +86,33 @@ private struct Panel {
     #expect(abs(broken.minX - correct.minX)
             == (p.openWindowSize.width - p.layout.collapsed.width) / 2)
 }
+
+// Směr rozbalení: panel musí růst PRYČ od hrany, ke které je přilepený — dolů od horní,
+// doprava od levé, doleva od pravé. Kdyby se přilepená hrana hnula, panel by se při
+// otevírání odlepil od okraje obrazovky a vypadalo by to, že vyskočil.
+@Test func panelGrowsAwayFromTheEdgeItIsFlushWith() {
+    for placement in NotchPlacement.allCases {
+        for rings in [1, 3, 6] {
+            let p = Panel(placement: placement, ringCount: rings)
+            func shape(expanded: Bool) -> CGRect {
+                NotchGeometry.frames(layout: p.layout, expanded: expanded, ringCount: rings,
+                                     popover: nil, windowSize: p.openWindowSize).shape
+            }
+            let rest = shape(expanded: false)
+            let open = shape(expanded: true)
+            // Kotva nevacuity: rozbalený panel opravdu musí být větší, jinak by rovnost
+            // hran níž byla splněná triviálně.
+            #expect(open.width > rest.width || open.height > rest.height)
+
+            switch placement {
+            case .topCenter:
+                // CoreGraphics počítá y zdola, takže horní hrana je maxY.
+                #expect(rest.maxY == open.maxY, "\(placement)/\(rings): horní hrana se hnula")
+            case .leftEdge:
+                #expect(rest.minX == open.minX, "\(placement)/\(rings): levá hrana se hnula")
+            case .rightEdge:
+                #expect(rest.maxX == open.maxX, "\(placement)/\(rings): pravá hrana se hnula")
+            }
+        }
+    }
+}

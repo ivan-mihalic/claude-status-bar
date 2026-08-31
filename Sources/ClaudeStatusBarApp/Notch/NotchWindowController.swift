@@ -38,8 +38,13 @@ public final class NotchWindowController {
         /// draws the panel against that window's edge instead of where it belongs.
         var windowIsOpen = false
         var popoverIndex: Int?
+        /// What the pointer last asked for. Kept apart from `expanded` because opening takes
+        /// two turns, and a pointer that leaves inside that gap has to be able to cancel it.
+        var target: (expanded: Bool, index: Int?) = (false, nil)
         /// Pending shrink-back, so a reopen inside the closing animation cancels it.
         var shrink: DispatchWorkItem?
+        /// Pending second half of an open (see `setExpanded`).
+        var pendingOpen: DispatchWorkItem?
 
         init(panel: NotchPanel, host: NotchHostingView<NotchRootView>, layout: NotchLayout,
              openWindowSize: CGSize, restingFrame: CGRect, openFrame: CGRect) {
@@ -244,7 +249,7 @@ public final class NotchWindowController {
         [screenObserver, frameObserver].compactMap { $0 }.forEach(NotificationCenter.default.removeObserver)
         screenObserver = nil; frameObserver = nil
         setOpenWatchdog(false)
-        instances.forEach { $0.shrink?.cancel(); $0.panel.orderOut(nil) }
+        instances.forEach { $0.shrink?.cancel(); $0.pendingOpen?.cancel(); $0.panel.orderOut(nil) }
         instances = []
         enabled = false
     }
@@ -299,58 +304,87 @@ public final class NotchWindowController {
 
     /// Applies a new panel state, resizing the window around it.
     ///
-    /// Order matters in both directions: the window has to be big *before* the open panel is
-    /// drawn into it, and small *after* the closing animation has finished — otherwise the
-    /// content is clipped on the way out.
+    /// Opening takes **two turns** and that is not incidental. SwiftUI animates a change only
+    /// when the geometry it animates *into* already holds; moving the window and expanding the
+    /// panel in one transaction gives it a new coordinate space and a new size at once, and it
+    /// re-lays out instead of animating. Measured on a recording: the panel went from resting
+    /// to full height in a single frame on the way open, against five frames on the way
+    /// closed. So the window is adopted first with the panel still drawn at rest — which puts
+    /// nothing anywhere new on screen — and the expansion follows on the next turn, with only
+    /// `expanded` changing. It then grows away from whichever edge it is flush with: down from
+    /// the top, right from the left edge, left from the right edge.
+    ///
+    /// Closing needs none of that: the window stays open until the shape has finished
+    /// shrinking, so there is only ever one thing changing.
     private func setExpanded(_ instance: Instance, _ expanded: Bool, popoverIndex: Int?) {
         let index = expanded ? popoverIndex : nil
-        guard expanded != instance.expanded || index != instance.popoverIndex else { return }
+        guard (expanded, index) != instance.target else { return }
+        instance.target = (expanded, index)
 
-        instance.shrink?.cancel()
-        instance.shrink = nil
+        instance.pendingOpen?.cancel(); instance.pendingOpen = nil
+        instance.shrink?.cancel();      instance.shrink = nil
 
-        if expanded && !instance.windowIsOpen {
-            // `currentFrame` first: it is what the frame guard compares against, so moving
-            // the window before updating it would look like a window manager did it.
-            instance.windowIsOpen = true
-            instance.currentFrame = instance.openFrame
-            instance.panel.setFrame(instance.openFrame, display: false)
+        if expanded, !instance.windowIsOpen {
+            adoptOpenWindow(instance)
+            let work = DispatchWorkItem { [weak self, weak instance] in
+                guard let self, let instance else { return }
+                MainActor.assumeIsolated {
+                    instance.pendingOpen = nil
+                    self.render(instance, expanded: instance.target.expanded,
+                                index: instance.target.index)
+                }
+            }
+            instance.pendingOpen = work
+            DispatchQueue.main.async(execute: work)
+        } else {
+            render(instance, expanded: expanded, index: index)
+            if !expanded, instance.windowIsOpen { scheduleShrink(instance) }
         }
 
+        setOpenWatchdog(instances.contains { $0.windowIsOpen })
+    }
+
+    /// Grows the window to its open size while the panel is still drawn at rest. Nothing moves
+    /// on screen: the resting shape sits in the same place in either window, which is what
+    /// `closingPanel_doesNotJumpSideways` pins down.
+    private func adoptOpenWindow(_ instance: Instance) {
+        // `currentFrame` first: it is what the frame guard compares against, so moving the
+        // window before updating it would look like a window manager did it.
+        instance.windowIsOpen = true
+        instance.currentFrame = instance.openFrame
+        instance.panel.setFrame(instance.openFrame, display: false)
+        render(instance, expanded: instance.expanded, index: instance.popoverIndex)
+    }
+
+    private func render(_ instance: Instance, expanded: Bool, index: Int?) {
         instance.expanded = expanded
         instance.popoverIndex = index
         instance.host.rootView = rootView(layout: instance.layout, expanded: expanded,
                                           popoverIndex: index,
                                           windowSize: instance.windowSize)
         apply(instance)
+    }
 
-        if !expanded, instance.windowIsOpen {
-            // The window stays open — and keeps taking mouse events — until the shape has
-            // finished shrinking. Blanking it out early would leave the panel unable to
-            // notice the pointer coming back, and resizing early is what made it jump.
-            let work = DispatchWorkItem { [weak self, weak instance] in
-                guard let self, let instance else { return }
-                MainActor.assumeIsolated {
-                    instance.windowIsOpen = false
-                    instance.currentFrame = instance.restingFrame
-                    instance.panel.setFrame(instance.restingFrame, display: false)
-                    // Re-laid out for the window it now actually has. By this point the
-                    // shape is already at its resting size, so nothing moves.
-                    instance.host.rootView = self.rootView(layout: instance.layout,
-                                                           expanded: false,
-                                                           popoverIndex: nil,
-                                                           windowSize: instance.windowSize)
-                    self.apply(instance)
-                }
+    /// Puts the window back to the resting size once the closing animation has finished. The
+    /// window keeps taking mouse events throughout, so the pointer coming back cancels this.
+    private func scheduleShrink(_ instance: Instance) {
+        let work = DispatchWorkItem { [weak self, weak instance] in
+            guard let self, let instance else { return }
+            MainActor.assumeIsolated {
+                instance.windowIsOpen = false
+                instance.currentFrame = instance.restingFrame
+                instance.panel.setFrame(instance.restingFrame, display: false)
+                // Re-laid out for the window it now actually has. By this point the shape is
+                // already at its resting size, so nothing moves.
+                self.render(instance, expanded: false, index: nil)
+                self.setOpenWatchdog(self.instances.contains { $0.windowIsOpen })
             }
-            instance.shrink = work
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + NotchAnimation.finish(container: true, expanding: false)
-                    + NotchAnimation.settleMargin,
-                execute: work)
         }
-
-        setOpenWatchdog(instances.contains { $0.expanded })
+        instance.shrink = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + NotchAnimation.finish(container: true, expanding: false)
+                + NotchAnimation.settleMargin,
+            execute: work)
     }
 
     private func setOpenWatchdog(_ on: Bool) {
