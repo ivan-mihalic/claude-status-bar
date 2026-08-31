@@ -32,6 +32,11 @@ public final class NotchWindowController {
         /// outside it cannot be on the panel.
         var currentFrame: CGRect
         var expanded = false
+        /// Whether the *window* is currently the open one. Tracked apart from `expanded`
+        /// because the two disagree for the length of the closing animation, and pairing
+        /// collapsed content with a collapsed window size while the window is still open
+        /// draws the panel against that window's edge instead of where it belongs.
+        var windowIsOpen = false
         var popoverIndex: Int?
         /// Pending shrink-back, so a reopen inside the closing animation cancels it.
         var shrink: DispatchWorkItem?
@@ -44,7 +49,11 @@ public final class NotchWindowController {
             self.currentFrame = restingFrame
         }
 
-        var windowSize: CGSize { expanded ? openWindowSize : layout.collapsed.size }
+        var windowSize: CGSize {
+            NotchWindowController.contentWindowSize(windowIsOpen: windowIsOpen,
+                                                    open: openWindowSize,
+                                                    resting: layout.collapsed.size)
+        }
     }
 
     private let env: AppEnvironment
@@ -69,6 +78,18 @@ public final class NotchWindowController {
     private var expandOnHover = true
     private var showPopover = true
     private var screensAsleep = false
+
+    /// Size the panel's content must be laid out for.
+    ///
+    /// It follows the **window**, not the panel state. On the way out the content collapses
+    /// first and the window catches up when the animation is over; laying the collapsed shape
+    /// out for a collapsed window during that gap puts it at the open window's leading edge —
+    /// the panel visibly jumps sideways by half the difference between the two widths and
+    /// snaps back. Measured at 77 px on a recording before this was split in two.
+    public nonisolated static func contentWindowSize(windowIsOpen: Bool, open: CGSize,
+                                                     resting: CGSize) -> CGSize {
+        windowIsOpen ? open : resting
+    }
 
     public init(env: AppEnvironment, onOpenDashboard: @escaping () -> Void = {}) {
         self.env = env
@@ -268,6 +289,11 @@ public final class NotchWindowController {
         let decision = NotchInteraction.decide(state: state, current: instance.popoverIndex,
                                                expandOnHover: expandOnHover,
                                                showPopover: showPopover, ringCount: count)
+        // `decision.acceptsMouse` is deliberately not consulted here any more. It is true for
+        // exactly the pointer positions that keep the panel open, and the window only has
+        // margins to give away while it is open — so acting on `expanded` covers it, and
+        // flipping the window transparent to clicks mid-close would stop it noticing the
+        // pointer coming back.
         setExpanded(instance, decision.expanded, popoverIndex: decision.popoverIndex)
     }
 
@@ -283,12 +309,12 @@ public final class NotchWindowController {
         instance.shrink?.cancel()
         instance.shrink = nil
 
-        if expanded && !instance.expanded {
+        if expanded && !instance.windowIsOpen {
             // `currentFrame` first: it is what the frame guard compares against, so moving
             // the window before updating it would look like a window manager did it.
+            instance.windowIsOpen = true
             instance.currentFrame = instance.openFrame
-            instance.panel.setFrame(instance.openFrame, display: true)
-            instance.panel.ignoresMouseEvents = false
+            instance.panel.setFrame(instance.openFrame, display: false)
         }
 
         instance.expanded = expanded
@@ -298,23 +324,29 @@ public final class NotchWindowController {
                                           windowSize: instance.windowSize)
         apply(instance)
 
-        if !expanded {
-            // The margins of the open window are transparent and would swallow clicks for as
-            // long as the closing animation lasts, so they stop taking events at once and the
-            // window catches up when the animation is over.
-            instance.panel.ignoresMouseEvents = true
+        if !expanded, instance.windowIsOpen {
+            // The window stays open — and keeps taking mouse events — until the shape has
+            // finished shrinking. Blanking it out early would leave the panel unable to
+            // notice the pointer coming back, and resizing early is what made it jump.
             let work = DispatchWorkItem { [weak self, weak instance] in
                 guard let self, let instance else { return }
                 MainActor.assumeIsolated {
+                    instance.windowIsOpen = false
                     instance.currentFrame = instance.restingFrame
-                    instance.panel.setFrame(instance.restingFrame, display: true)
-                    instance.panel.ignoresMouseEvents = false
+                    instance.panel.setFrame(instance.restingFrame, display: false)
+                    // Re-laid out for the window it now actually has. By this point the
+                    // shape is already at its resting size, so nothing moves.
+                    instance.host.rootView = self.rootView(layout: instance.layout,
+                                                           expanded: false,
+                                                           popoverIndex: nil,
+                                                           windowSize: instance.windowSize)
                     self.apply(instance)
                 }
             }
             instance.shrink = work
             DispatchQueue.main.asyncAfter(
-                deadline: .now() + NotchAnimation.finish(container: true, expanding: false),
+                deadline: .now() + NotchAnimation.finish(container: true, expanding: false)
+                    + NotchAnimation.settleMargin,
                 execute: work)
         }
 

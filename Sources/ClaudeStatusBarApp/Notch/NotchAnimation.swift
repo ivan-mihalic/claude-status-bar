@@ -25,6 +25,14 @@ public enum NotchAnimation {
     /// Closing has no delay on either part: the content simply moves faster.
     public static let contentCloseDelay: Double = 0
 
+    /// Extra wait before treating a spring as finished.
+    ///
+    /// `response` is a spring's natural period, not the moment it stops moving — at exactly
+    /// `containerClose` the shape is still a little wider than it will end up. Anything that
+    /// resizes the window to fit the finished shape has to allow for that, or it clips the
+    /// tail of the animation.
+    public static let settleMargin: Double = 0.15
+
     /// When each part has finished, measured from the start of the gesture.
     public static func finish(container: Bool, expanding: Bool) -> Double {
         if container { return expanding ? containerOpen : containerClose }
