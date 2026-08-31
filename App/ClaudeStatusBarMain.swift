@@ -13,6 +13,7 @@ struct ClaudeStatusBarMain: App {
     @AppStorage("notchPlacement") private var notchPlacement = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var notchEdgeOffset = 50.0
     @AppStorage("notchShowRingsAtRestOnTop") private var notchRingsAtRestOnTop = false
+    @AppStorage("notchDisplay") private var notchDisplay = NotchDisplay.mainDisplay.rawValue
     @AppStorage("notchExpandOnHover") private var notchExpandOnHover = true
     @AppStorage("notchShowPopover") private var notchShowPopover = true
     @Environment(\.openWindow) private var openWindow
@@ -49,7 +50,8 @@ struct ClaudeStatusBarMain: App {
             }
             controller.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                     edgeOffsetPercent: notchEdgeOffset,
-                                    showRingsAtRestOnTop: notchRingsAtRestOnTop)
+                                    showRingsAtRestOnTop: notchRingsAtRestOnTop,
+                                    display: NotchDisplay(rawValue: notchDisplay) ?? .mainDisplay)
             controller.setBehaviour(expandOnHover: notchExpandOnHover,
                                     showPopover: notchShowPopover)
             controller.setEnabled(on)
@@ -66,10 +68,11 @@ struct ClaudeStatusBarMain: App {
             notch?.accountsChanged()
         }
         .onChange(of: [notchPlacement, String(notchEdgeOffset),
-                       String(notchRingsAtRestOnTop)]) { _, _ in
+                       String(notchRingsAtRestOnTop), notchDisplay]) { _, _ in
             notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                 edgeOffsetPercent: notchEdgeOffset,
-                                showRingsAtRestOnTop: notchRingsAtRestOnTop)
+                                showRingsAtRestOnTop: notchRingsAtRestOnTop,
+                                display: NotchDisplay(rawValue: notchDisplay) ?? .mainDisplay)
         }
 
         // A single window (not a WindowGroup) → at most one app window ever. Its

@@ -3,36 +3,49 @@ import AppKit
 import SwiftUI
 import Observation
 
-/// Owns the notch panel: creates it when the setting is on, tears it down when off, rebuilds
-/// it when the placement changes or the display configuration does (unplugging a monitor,
-/// a resolution change, closing the lid).
+/// Owns the notch panels: creates them when the setting is on, tears them down when off, and
+/// rebuilds them when the placement, the chosen display or the display configuration changes.
 ///
-/// All hover decisions are made here from raw pointer positions, because the panel lives in a
-/// non-key window of a background app — the one place SwiftUI's own hover tracking is silent.
+/// All hover decisions are made here from raw pointer positions, because the panels live in
+/// non-key windows of a background app — the one place SwiftUI's own hover tracking is silent.
 @MainActor
 @Observable
 public final class NotchWindowController {
+    /// One panel on one screen, with its own hover state: two displays each get a panel, and
+    /// only the one under the pointer reacts.
+    private final class Instance {
+        let panel: NotchPanel
+        let host: NotchHostingView<NotchRootView>
+        var layout: NotchLayout
+        var expectedFrame: CGRect
+        var expanded = false
+        var popoverIndex: Int?
+
+        init(panel: NotchPanel, host: NotchHostingView<NotchRootView>,
+             layout: NotchLayout, expectedFrame: CGRect) {
+            self.panel = panel; self.host = host
+            self.layout = layout; self.expectedFrame = expectedFrame
+        }
+    }
+
     private let env: AppEnvironment
     /// Opens the Dashboard. Injected because `openWindow` only exists inside the SwiftUI
-    /// scene graph, and this panel lives outside it.
+    /// scene graph, and these panels live outside it.
     public var onOpenDashboard: () -> Void
 
-    private var panel: NotchPanel?
+    private var instances: [Instance] = []
     private var screenObserver: (any NSObjectProtocol)?
     private var frameObserver: (any NSObjectProtocol)?
     private var mouseMonitors: [Any] = []
     private var pointerPoll: Timer?
-    /// Where the panel belongs. Anything else is a window manager having opinions.
-    private var expectedFrame: CGRect?
-    private var layout: NotchLayout?
-    private var expanded = false
-    private var popoverIndex: Int?
+
     private var enabled = false
     private var placement: NotchPlacement = .topCenter
     private var edgeOffsetPercent: Double = 50
+    private var showRingsAtRestOnTop = false
+    private var display: NotchDisplay = .mainDisplay
     private var expandOnHover = true
     private var showPopover = true
-    private var showRingsAtRestOnTop = false
 
     public init(env: AppEnvironment, onOpenDashboard: @escaping () -> Void = {}) {
         self.env = env
@@ -45,23 +58,24 @@ public final class NotchWindowController {
         on ? build() : teardown()
     }
 
-    /// Placement and edge height come from Settings; a change rebuilds the window, because
-    /// its size and screen anchor both depend on them.
+    /// Placement, edge height and target display all change the windows themselves, so a
+    /// change rebuilds rather than redraws.
     public func setPlacement(_ placement: NotchPlacement, edgeOffsetPercent: Double,
-                             showRingsAtRestOnTop: Bool) {
+                             showRingsAtRestOnTop: Bool, display: NotchDisplay) {
         guard placement != self.placement
                 || edgeOffsetPercent != self.edgeOffsetPercent
-                || showRingsAtRestOnTop != self.showRingsAtRestOnTop else { return }
+                || showRingsAtRestOnTop != self.showRingsAtRestOnTop
+                || display != self.display else { return }
         self.placement = placement
         self.edgeOffsetPercent = edgeOffsetPercent
         self.showRingsAtRestOnTop = showRingsAtRestOnTop
+        self.display = display
         rebuild()
     }
 
-    /// Behaviour switches from the Notch Panel screen. These change what a pointer move
-    /// means, not the window, so nothing is rebuilt — but a panel already open under the
-    /// pointer is collapsed, or the setting would appear not to take effect until the
-    /// pointer next moved.
+    /// Behaviour switches only change what a pointer move means, so nothing is rebuilt — but
+    /// a panel already open under the pointer is re-evaluated, or the setting would appear
+    /// not to take effect until the pointer next moved.
     public func setBehaviour(expandOnHover: Bool, showPopover: Bool) {
         guard expandOnHover != self.expandOnHover || showPopover != self.showPopover else { return }
         self.expandOnHover = expandOnHover
@@ -69,7 +83,6 @@ public final class NotchWindowController {
         reevaluatePointer()
     }
 
-    /// Rebuild against the current screens and settings. Idempotent — call it freely.
     public func rebuild() {
         guard enabled else { return }
         teardown()
@@ -77,42 +90,45 @@ public final class NotchWindowController {
         build()
     }
 
-    /// Visible rings, not accounts: hiding an account changes the panel exactly as removing
-    /// one does, and the count is what the resting edge panel is sized from.
+    /// The resting panel is sized from the visible ring count whenever it shows its rings, so
+    /// adding, removing or hiding an account changes the windows themselves.
+    public func accountsChanged() {
+        guard enabled, instances.contains(where: { $0.layout.showsRingsAtRest }) else { return }
+        rebuild()
+    }
+
     private var ringCount: Int {
         min(NotchModel.rings(accounts: env.appState.accounts).count, NotchMetrics.maxRings)
     }
 
-    /// The resting edge panel is sized from the visible ring count, so adding, removing or
-    /// hiding an account changes the window itself, not just what is drawn in it.
-    public func accountsChanged() {
-        guard enabled, let layout, layout.showsRingsAtRest else { return }
-        rebuild()
-    }
+    // MARK: Lifecycle
 
     private func build() {
-        guard let screen = NSScreen.main else { return }
-        let layout = NotchGeometry.layout(for: NotchGeometry.metrics(of: screen),
-                                          placement: placement,
-                                          edgeOffsetPercent: edgeOffsetPercent,
-                                          ringCount: ringCount,
-                                          showRingsAtRest: showRingsAtRestOnTop)
-        self.layout = layout
-        let windowSize = NotchMetrics.windowSize(placement: placement,
-                                                 collapsed: layout.collapsed.size,
-                                                 ringCount: ringCount,
-                                                 notchClearance: layout.notchClearance)
-        let frame = layout.panelFrame(expandedSize: windowSize)
+        for screen in NotchScreens.screens(for: display) {
+            let layout = NotchGeometry.layout(for: NotchGeometry.metrics(of: screen),
+                                              placement: placement,
+                                              edgeOffsetPercent: edgeOffsetPercent,
+                                              ringCount: ringCount,
+                                              showRingsAtRest: showRingsAtRestOnTop)
+            let windowSize = NotchMetrics.windowSize(placement: placement,
+                                                     collapsed: layout.collapsed.size,
+                                                     ringCount: ringCount,
+                                                     notchClearance: layout.notchClearance)
+            let frame = layout.panelFrame(expandedSize: windowSize)
 
-        let panel = NotchPanel(frame: frame)
-        let host = NotchHostingView(rootView: rootView())
-        host.frame = CGRect(origin: .zero, size: frame.size)
-        host.autoresizingMask = [.width, .height]
-        panel.contentView = host
-        applyState(to: host)
-        panel.orderFrontRegardless()      // show without activating the app
-        self.panel = panel
-        self.expectedFrame = frame
+            let panel = NotchPanel(frame: frame)
+            let host = NotchHostingView(rootView: rootView(layout: layout, expanded: false,
+                                                           popoverIndex: nil))
+            host.frame = CGRect(origin: .zero, size: frame.size)
+            host.autoresizingMask = [.width, .height]
+            panel.contentView = host
+
+            let instance = Instance(panel: panel, host: host, layout: layout, expectedFrame: frame)
+            apply(instance)
+            panel.orderFrontRegardless()      // show without activating the app
+            instances.append(instance)
+        }
+        guard !instances.isEmpty else { return }
 
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -120,138 +136,125 @@ public final class NotchWindowController {
                 MainActor.assumeIsolated { self?.rebuild() }
             }
 
-        // A window manager moves or tiles the panel through the Accessibility API, which
-        // ignores `isMovable = false`. Watching the frame is the only defence that works
-        // whoever did it.
+        // A window manager moves or tiles a panel through the Accessibility API, which ignores
+        // `isMovable = false`. Watching the frame is the only defence that works whoever did it.
         frameObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.restoreFrameIfMoved() }
+            forName: NSWindow.didMoveNotification, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated { self?.restoreFrameIfMoved(note.object as? NSWindow) }
             }
 
         installMouseMonitors()
     }
 
-    /// The pointer has to be tracked even while the window ignores mouse events — and it does,
+    private func teardown() {
+        [screenObserver, frameObserver].compactMap { $0 }.forEach(NotificationCenter.default.removeObserver)
+        screenObserver = nil; frameObserver = nil
+        mouseMonitors.forEach(NSEvent.removeMonitor)
+        mouseMonitors = []
+        setPointerPolling(false)
+        instances.forEach { $0.panel.orderOut(nil) }
+        instances = []
+        enabled = false
+    }
+
+    private func rootView(layout: NotchLayout, expanded: Bool, popoverIndex: Int?) -> NotchRootView {
+        NotchRootView(env: env, layout: layout, expanded: expanded, popoverIndex: popoverIndex,
+                      onOpenDashboard: { [weak self] in self?.onOpenDashboard() })
+    }
+
+    // MARK: Pointer
+
+    /// The pointer has to be tracked even while the windows ignore mouse events — and they do,
     /// almost always, so that clicks reach the desktop instead of an invisible wall. A tracking
-    /// area inside the window would therefore never fire.
+    /// area inside a window would therefore never fire.
     private func installMouseMonitors() {
         let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) {
-            [weak self] event in
-            MainActor.assumeIsolated { self?.pointerMoved(toScreenPoint: NSEvent.mouseLocation) }
+            [weak self] _ in
+            MainActor.assumeIsolated { self?.reevaluatePointer() }
         }
         // The global monitor is silent while our own app is frontmost, so pair it with a local
         // one; otherwise the panel freezes the moment its Dashboard window has focus.
         let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) {
             [weak self] event in
-            MainActor.assumeIsolated { self?.pointerMoved(toScreenPoint: NSEvent.mouseLocation) }
+            MainActor.assumeIsolated { self?.reevaluatePointer() }
             return event
         }
         mouseMonitors = [global, local].compactMap { $0 }
     }
 
-    /// While the panel is open the event monitors stop being a reliable source: with
+    /// While a panel is open the event monitors stop being a reliable source: with
     /// `ignoresMouseEvents` off the moves are delivered to *this* app, so the global monitor
     /// goes quiet, and the panel is not a key window, so the local one never sees a
     /// mouse-moved either. Reading the pointer directly does not depend on delivery at all.
-    /// It runs only while the panel is open, and stops the moment it closes.
     private func setPointerPolling(_ on: Bool) {
         guard on != (pointerPoll != nil) else { return }
         pointerPoll?.invalidate()
         pointerPoll = nil
         guard on else { return }
         pointerPoll = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.pointerMoved(toScreenPoint: NSEvent.mouseLocation) }
+            MainActor.assumeIsolated { self?.reevaluatePointer() }
         }
     }
 
-    private func restoreFrameIfMoved() {
-        guard let panel, let expectedFrame,
-              NotchWindowGuard.needsRestore(current: panel.frame, expected: expectedFrame)
-        else { return }
-        panel.setFrame(expectedFrame, display: false)
-    }
-
-    private func teardown() {
-        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
-        screenObserver = nil
-        if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
-        frameObserver = nil
-        mouseMonitors.forEach(NSEvent.removeMonitor)
-        mouseMonitors = []
-        setPointerPolling(false)
-        expectedFrame = nil
-        panel?.orderOut(nil)
-        panel = nil
-        layout = nil
-        expanded = false
-        popoverIndex = nil
-        enabled = false
-    }
-
-    private func rootView() -> NotchRootView {
-        NotchRootView(env: env,
-                      layout: layout ?? NotchGeometry.layout(for: ScreenMetrics(
-                        frame: .zero, topInset: 0, auxiliaryTopLeftWidth: nil)),
-                      expanded: expanded, popoverIndex: popoverIndex,
-                      onOpenDashboard: { [weak self] in self?.onOpenDashboard() })
+    private func reevaluatePointer() {
+        let point = NSEvent.mouseLocation
+        for instance in instances { update(instance, screenPoint: point) }
+        setPointerPolling(instances.contains { $0.expanded })
     }
 
     /// One pointer position in, one panel state out — including whether the window wants the
-    /// click at all. Everything else about hover flows from this.
-    private func pointerMoved(toScreenPoint screenPoint: CGPoint) {
-        guard let panel, let layout,
-              let host = panel.contentView as? NotchHostingView<NotchRootView> else { return }
+    /// click at all.
+    private func update(_ instance: Instance, screenPoint: CGPoint) {
+        let origin = instance.panel.frame.origin
+        let inWindow = instance.panel.frame.contains(screenPoint)
+            ? CGPoint(x: screenPoint.x - origin.x, y: screenPoint.y - origin.y)
+            : nil
 
-        // Screen coordinates → window coordinates. Both are bottom-left origin, so this is a
-        // translation, not a flip.
-        let origin = panel.frame.origin
-        let raw = CGPoint(x: screenPoint.x - origin.x, y: screenPoint.y - origin.y)
-        let inWindow = panel.frame.contains(screenPoint) ? raw : nil
-
-        let frames = currentFrames()
-        let state = NotchInteraction.state(pointInWindow: inWindow, layout: layout,
+        let frames = self.frames(for: instance)
+        let state = NotchInteraction.state(pointInWindow: inWindow, layout: instance.layout,
                                            frames: frames, ringCount: ringCount)
-
-        let decision = NotchInteraction.decide(state: state, current: popoverIndex,
+        let decision = NotchInteraction.decide(state: state, current: instance.popoverIndex,
                                                expandOnHover: expandOnHover,
-                                               showPopover: showPopover,
-                                               ringCount: ringCount)
+                                               showPopover: showPopover, ringCount: ringCount)
         // The whole point: outside the drawn panel the window is transparent to clicks.
-        panel.ignoresMouseEvents = !decision.acceptsMouse
+        instance.panel.ignoresMouseEvents = !decision.acceptsMouse
 
-        guard decision.expanded != expanded || decision.popoverIndex != popoverIndex else { return }
-        expanded = decision.expanded
-        popoverIndex = decision.popoverIndex
-        setPointerPolling(decision.expanded)
-        host.rootView = rootView()
-        applyState(to: host)
+        guard decision.expanded != instance.expanded
+                || decision.popoverIndex != instance.popoverIndex else { return }
+        instance.expanded = decision.expanded
+        instance.popoverIndex = decision.popoverIndex
+        instance.host.rootView = rootView(layout: instance.layout, expanded: instance.expanded,
+                                          popoverIndex: instance.popoverIndex)
+        apply(instance)
     }
 
-    /// Used when a behaviour setting changes: re-evaluate against wherever the pointer is.
-    private func reevaluatePointer() { pointerMoved(toScreenPoint: NSEvent.mouseLocation) }
-
-    private func currentFrames() -> NotchFrames {
-        guard let layout else {
-            return NotchFrames(window: .zero, shape: .zero, popover: nil)
-        }
+    private func frames(for instance: Instance) -> NotchFrames {
         let models = NotchModel.rings(accounts: env.appState.accounts)
-        let index = popoverIndex.flatMap { $0 < models.count ? $0 : nil }
+        let index = instance.popoverIndex.flatMap { $0 < models.count ? $0 : nil }
         return NotchGeometry.frames(
-            layout: layout, expanded: expanded, ringCount: ringCount,
+            layout: instance.layout, expanded: instance.expanded, ringCount: ringCount,
             popover: index.map { (index: $0, windowCount: max(models[$0].windows.count, 1)) })
     }
 
     /// Keeps the clickable region equal to the drawn region: both come from
     /// `NotchGeometry.frames`, so they cannot disagree.
-    private func applyState(to host: NotchHostingView<NotchRootView>) {
-        guard let layout else { return }
-        let frames = currentFrames()
+    private func apply(_ instance: Instance) {
+        let frames = self.frames(for: instance)
         let path = CGMutablePath()
-        path.addPath(NotchShape(flushEdge: layout.placement.flushEdge).cgPath(in: frames.shape))
+        path.addPath(NotchShape(flushEdge: instance.layout.placement.flushEdge)
+            .cgPath(in: frames.shape))
         if let popover = frames.popover {
             path.addRect(popover.insetBy(dx: -NotchMetrics.popoverGap,
                                          dy: -NotchMetrics.popoverGap))
         }
-        host.interactivePath = path
+        instance.host.interactivePath = path
+    }
+
+    private func restoreFrameIfMoved(_ window: NSWindow?) {
+        guard let window,
+              let instance = instances.first(where: { $0.panel === window }),
+              NotchWindowGuard.needsRestore(current: instance.panel.frame,
+                                            expected: instance.expectedFrame) else { return }
+        instance.panel.setFrame(instance.expectedFrame, display: false)
     }
 }

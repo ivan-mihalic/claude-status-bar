@@ -11,6 +11,7 @@ public struct NotchSettingsView: View {
     @AppStorage("notchPlacement") private var placementRaw = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var edgeOffset = 50.0
     @AppStorage("notchShowRingsAtRestOnTop") private var showRingsAtRestOnTop = false
+    @AppStorage("notchDisplay") private var displayRaw = NotchDisplay.mainDisplay.rawValue
     @AppStorage("notchExpandOnHover") private var expandOnHover = true
     @AppStorage("notchShowPopover") private var showPopover = true
 
@@ -27,6 +28,16 @@ public struct NotchSettingsView: View {
                 Text("A floating panel with one ring per account: the outer arc is the worst "
                      + "weekly limit, the inner one the current session. The menu-bar icon is "
                      + "unaffected — this is a second view of the same data.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Display") {
+                Picker("Show the panel on", selection: $displayRaw) {
+                    ForEach(NotchDisplay.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(!enabled)
+                Text(NotchDisplay(rawValue: displayRaw)?.detail ?? "")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

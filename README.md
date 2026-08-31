@@ -108,6 +108,10 @@ The sidebar's **Notch Panel** screen turns on a floating panel with one ring per
 ring is two arcs: the **outer** is the worst weekly limit, the **inner** is the current session.
 The account's **Menu label** prefix, if it has one, sits in the middle.
 
+**Which display** it appears on is a setting: the **main display** (menu bar and Dock), the
+**display with the notch** (the built-in MacBook screen, wherever it currently sits in the
+arrangement), or **all displays** at once.
+
 Three positions:
 
 | Position | At rest | On hover |
