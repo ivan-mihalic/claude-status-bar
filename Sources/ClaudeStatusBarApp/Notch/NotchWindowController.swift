@@ -31,6 +31,7 @@ public final class NotchWindowController {
     private var edgeOffsetPercent: Double = 50
     private var expandOnHover = true
     private var showPopover = true
+    private var showRingsAtRestOnTop = false
 
     public init(env: AppEnvironment, onOpenDashboard: @escaping () -> Void = {}) {
         self.env = env
@@ -45,10 +46,14 @@ public final class NotchWindowController {
 
     /// Placement and edge height come from Settings; a change rebuilds the window, because
     /// its size and screen anchor both depend on them.
-    public func setPlacement(_ placement: NotchPlacement, edgeOffsetPercent: Double) {
-        guard placement != self.placement || edgeOffsetPercent != self.edgeOffsetPercent else { return }
+    public func setPlacement(_ placement: NotchPlacement, edgeOffsetPercent: Double,
+                             showRingsAtRestOnTop: Bool) {
+        guard placement != self.placement
+                || edgeOffsetPercent != self.edgeOffsetPercent
+                || showRingsAtRestOnTop != self.showRingsAtRestOnTop else { return }
         self.placement = placement
         self.edgeOffsetPercent = edgeOffsetPercent
+        self.showRingsAtRestOnTop = showRingsAtRestOnTop
         rebuild()
     }
 
@@ -80,10 +85,8 @@ public final class NotchWindowController {
     /// The resting edge panel is sized from the visible ring count, so adding, removing or
     /// hiding an account changes the window itself, not just what is drawn in it.
     public func accountsChanged() {
-        guard enabled, let layout, layout.placement.isEdge else { return }
-        if layout.collapsed.size != NotchMetrics.edgeCollapsedSize(ringCount: ringCount) {
-            rebuild()
-        }
+        guard enabled, let layout, layout.showsRingsAtRest else { return }
+        rebuild()
     }
 
     private func build() {
@@ -91,11 +94,13 @@ public final class NotchWindowController {
         let layout = NotchGeometry.layout(for: NotchGeometry.metrics(of: screen),
                                           placement: placement,
                                           edgeOffsetPercent: edgeOffsetPercent,
-                                          ringCount: ringCount)
+                                          ringCount: ringCount,
+                                          showRingsAtRest: showRingsAtRestOnTop)
         self.layout = layout
         let windowSize = NotchMetrics.windowSize(placement: placement,
                                                  collapsed: layout.collapsed.size,
-                                                 ringCount: ringCount)
+                                                 ringCount: ringCount,
+                                                 notchClearance: layout.notchClearance)
         let frame = layout.panelFrame(expandedSize: windowSize)
 
         let panel = NotchPanel(frame: frame)

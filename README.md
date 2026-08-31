@@ -98,7 +98,7 @@ Three positions:
 
 | Position | At rest | On hover |
 |---|---|---|
-| **Top (notch)** | hidden inside the MacBook notch — a pill over the middle of the menu bar on displays without one | grows downwards, rings in a row |
+| **Top (notch)** | hidden inside the MacBook notch — a pill over the middle of the menu bar on displays without one. **Keep the rings visible without hovering** shows them at rest instead: below the cutout on a Mac that has one, at the top on any other display | grows downwards, rings in a row |
 | **Left / right edge** | small rings, **always visible**, at a height you pick with a slider | rings grow, a gear appears |
 
 Each ring carries a small provider mark on its shoulder, and the **Notch Panel** screen lets

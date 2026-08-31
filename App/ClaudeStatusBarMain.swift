@@ -12,6 +12,7 @@ struct ClaudeStatusBarMain: App {
     @AppStorage("showNotchPanel") private var showNotchPanel = false
     @AppStorage("notchPlacement") private var notchPlacement = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var notchEdgeOffset = 50.0
+    @AppStorage("notchShowRingsAtRestOnTop") private var notchRingsAtRestOnTop = false
     @AppStorage("notchExpandOnHover") private var notchExpandOnHover = true
     @AppStorage("notchShowPopover") private var notchShowPopover = true
     @Environment(\.openWindow) private var openWindow
@@ -43,7 +44,8 @@ struct ClaudeStatusBarMain: App {
                 openWindow(id: "main")
             }
             controller.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
-                                    edgeOffsetPercent: notchEdgeOffset)
+                                    edgeOffsetPercent: notchEdgeOffset,
+                                    showRingsAtRestOnTop: notchRingsAtRestOnTop)
             controller.setBehaviour(expandOnHover: notchExpandOnHover,
                                     showPopover: notchShowPopover)
             controller.setEnabled(on)
@@ -59,13 +61,11 @@ struct ClaudeStatusBarMain: App {
         .onChange(of: env.appState.accounts.filter(\.isShownInNotch).count) { _, _ in
             notch?.accountsChanged()
         }
-        .onChange(of: notchPlacement) { _, _ in
+        .onChange(of: [notchPlacement, String(notchEdgeOffset),
+                       String(notchRingsAtRestOnTop)]) { _, _ in
             notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
-                                edgeOffsetPercent: notchEdgeOffset)
-        }
-        .onChange(of: notchEdgeOffset) { _, _ in
-            notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
-                                edgeOffsetPercent: notchEdgeOffset)
+                                edgeOffsetPercent: notchEdgeOffset,
+                                showRingsAtRestOnTop: notchRingsAtRestOnTop)
         }
 
         // A single window (not a WindowGroup) → at most one app window ever. Its

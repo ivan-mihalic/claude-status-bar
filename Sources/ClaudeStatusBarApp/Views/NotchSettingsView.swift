@@ -10,6 +10,7 @@ public struct NotchSettingsView: View {
     @AppStorage("showNotchPanel") private var enabled = false
     @AppStorage("notchPlacement") private var placementRaw = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var edgeOffset = 50.0
+    @AppStorage("notchShowRingsAtRestOnTop") private var showRingsAtRestOnTop = false
     @AppStorage("notchExpandOnHover") private var expandOnHover = true
     @AppStorage("notchShowPopover") private var showPopover = true
 
@@ -48,11 +49,19 @@ public struct NotchSettingsView: View {
                     .disabled(!enabled)
                 }
 
+                if placement == .topCenter {
+                    Toggle("Keep the rings visible without hovering", isOn: $showRingsAtRestOnTop)
+                        .disabled(!enabled)
+                    Text("Small rings sit under the panel the way they do on an edge. On a Mac "
+                         + "with a real notch they start below the cutout, because nothing is "
+                         + "visible behind it; on an external display they sit at the top.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
                 Text(placement.isEdge
                      ? "On an edge the rings are always visible, small, and grow when you point at them."
                      : "At the top the panel rests inside the notch — on a Mac without one it "
-                       + "appears as a pill over the middle of the menu bar, and both are "
-                       + "hidden until you point at them.")
+                       + "appears as a pill over the middle of the menu bar.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

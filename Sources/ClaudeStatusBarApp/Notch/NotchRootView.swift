@@ -100,9 +100,8 @@ public struct NotchRootView: View {
         }
     }
 
-    /// At rest the top placement shows nothing (it is hiding in the notch); an edge panel
-    /// shows its rings.
-    private var showsRingsAtRest: Bool { layout.placement.isEdge }
+    /// An edge panel always shows its rings; the top one does when the setting says so.
+    private var showsRingsAtRest: Bool { layout.showsRingsAtRest }
 
     public var body: some View {
         // 60s cadence: every relative time in the popover is minute-granular.
@@ -122,8 +121,11 @@ public struct NotchRootView: View {
                     .overlay {
                         if expanded || showsRingsAtRest {
                             ringStack(expanded: expanded)
+                                // Content clears a real cutout; on any other screen it is
+                                // ordinary padding, so nothing is pushed down for a hole
+                                // that isn't there.
                                 .padding(.top, layout.placement.ringsAreVertical
-                                         ? 0 : layout.collapsed.height + NotchMetrics.topGap)
+                                         ? 0 : layout.contentTopOffset(expanded: expanded))
                         }
                     }
                     .position(centre(of: frames.shape, in: frames.window))

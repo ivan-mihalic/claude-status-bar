@@ -47,11 +47,24 @@ public struct NotchLayout: Equatable, Sendable {
     /// Resting rect in screen coordinates, bottom-left origin, flush with its screen edge.
     public let collapsed: CGRect
     public let screen: CGRect
+    /// Height of the physical cutout content must stay clear of. Zero on any screen without
+    /// one — an external display gets no phantom allowance.
+    public let notchClearance: CGFloat
+    /// Whether the rings are drawn without hovering. Always true on an edge; at the top it
+    /// is a setting.
+    public let showsRingsAtRest: Bool
 
-    public init(kind: NotchKind, placement: NotchPlacement,
-                collapsed: CGRect, screen: CGRect) {
+    public init(kind: NotchKind, placement: NotchPlacement, collapsed: CGRect, screen: CGRect,
+                notchClearance: CGFloat = 0, showsRingsAtRest: Bool = false) {
         self.kind = kind; self.placement = placement
         self.collapsed = collapsed; self.screen = screen
+        self.notchClearance = notchClearance
+        self.showsRingsAtRest = showsRingsAtRest
+    }
+
+    /// Where the content area starts, measured down from the top of the shape.
+    public func contentTopOffset(expanded: Bool) -> CGFloat {
+        NotchMetrics.contentTopOffset(notchClearance: notchClearance, expanded: expanded)
     }
 
     /// The window frame in screen coordinates. The window is fixed: expansion and the
@@ -95,13 +108,15 @@ public struct NotchLayout: Equatable, Sendable {
     public func ringCentre(index: Int, in shape: CGRect, expanded: Bool) -> CGPoint {
         let d = NotchMetrics.ringDiameter(expanded: expanded)
         let step = d + NotchMetrics.ringSpacing(expanded: expanded)
-        let lead = NotchMetrics.padding(expanded: expanded) + d / 2 + CGFloat(index) * step
+        let sidePadding = expanded ? NotchMetrics.padding : NotchMetrics.collapsedPadding
+        let lead = sidePadding + d / 2 + CGFloat(index) * step
         if placement.ringsAreVertical {
             return CGPoint(x: shape.midX, y: shape.maxY - lead)
         }
-        // Under the notch the rings sit below the hardware cutout.
-        let top = shape.maxY - collapsed.height - NotchMetrics.topGap - d / 2
-        return CGPoint(x: shape.minX + lead, y: top)
+        // At the top the rings start below whatever the screen makes them start below: a real
+        // cutout on a notched Mac, plain padding anywhere else.
+        return CGPoint(x: shape.minX + lead,
+                       y: shape.maxY - contentTopOffset(expanded: expanded) - d / 2)
     }
 }
 
@@ -114,28 +129,38 @@ public enum NotchGeometry {
     ///   off-screen.
     /// - Parameter ringCount: needed for the edge placements, whose resting panel shows the
     ///   rings and therefore grows with the number of accounts.
+    /// - Parameter showRingsAtRest: top placement only — draw the rings without hovering,
+    ///   the way an edge panel always does.
     public static func layout(for m: ScreenMetrics,
                               placement: NotchPlacement = .topCenter,
                               edgeOffsetPercent: Double = 50,
-                              ringCount: Int = 0) -> NotchLayout {
+                              ringCount: Int = 0,
+                              showRingsAtRest: Bool = false) -> NotchLayout {
         switch placement {
         case .topCenter:
+            // A hardware cutout is the only thing that reserves space. Its height comes from
+            // the screen, not from a constant, because it differs between Mac models.
+            var kind = NotchKind.synthetic
+            var notchSize = NotchMetrics.syntheticTopSize
+            var clearance: CGFloat = 0
             if m.topInset > 0, let aux = m.auxiliaryTopLeftWidth, aux > 0 {
                 let width = m.frame.width - 2 * aux
                 if width > 0 {
-                    let rect = CGRect(x: m.frame.midX - width / 2,
-                                      y: m.frame.maxY - m.topInset,
-                                      width: width, height: m.topInset)
-                    return NotchLayout(kind: .hardware, placement: placement,
-                                       collapsed: rect, screen: m.frame)
+                    kind = .hardware
+                    notchSize = CGSize(width: width, height: m.topInset)
+                    clearance = m.topInset
                 }
             }
-            let size = NotchMetrics.syntheticTopSize
+            let size = showRingsAtRest
+                ? NotchMetrics.topCollapsedSize(notchSize: notchSize, notchClearance: clearance,
+                                                ringCount: ringCount)
+                : notchSize
             let rect = CGRect(x: m.frame.midX - size.width / 2,
                               y: m.frame.maxY - size.height,
                               width: size.width, height: size.height)
-            return NotchLayout(kind: .synthetic, placement: placement,
-                               collapsed: rect, screen: m.frame)
+            return NotchLayout(kind: kind, placement: placement, collapsed: rect,
+                               screen: m.frame, notchClearance: clearance,
+                               showsRingsAtRest: showRingsAtRest)
 
         case .leftEdge, .rightEdge:
             let size = NotchMetrics.edgeCollapsedSize(ringCount: ringCount)
@@ -146,7 +171,7 @@ public enum NotchGeometry {
             let x = placement == .leftEdge ? m.frame.minX : m.frame.maxX - size.width
             return NotchLayout(kind: .synthetic, placement: placement,
                                collapsed: CGRect(x: x, y: y, width: size.width, height: size.height),
-                               screen: m.frame)
+                               screen: m.frame, notchClearance: 0, showsRingsAtRest: true)
         }
     }
 
@@ -155,10 +180,12 @@ public enum NotchGeometry {
                               popover: (index: Int, windowCount: Int)?) -> NotchFrames {
         let windowSize = NotchMetrics.windowSize(placement: layout.placement,
                                                  collapsed: layout.collapsed.size,
-                                                 ringCount: ringCount)
+                                                 ringCount: ringCount,
+                                                 notchClearance: layout.notchClearance)
         let size = expanded
             ? NotchMetrics.expandedSize(placement: layout.placement,
-                                        collapsed: layout.collapsed.size, ringCount: ringCount)
+                                        collapsed: layout.collapsed.size, ringCount: ringCount,
+                                        notchClearance: layout.notchClearance)
             : layout.collapsed.size
         let shape = layout.shapeRect(windowSize: windowSize, size: size)
 

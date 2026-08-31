@@ -74,8 +74,30 @@ public enum NotchMetrics {
         return CGSize(width: thickness, height: length)
     }
 
-    public static func expandedSize(placement: NotchPlacement,
-                                    collapsed: CGSize, ringCount: Int) -> CGSize {
+    /// Vertical space the content must leave free at the top of a top-placed panel.
+    ///
+    /// This is the whole hardware-versus-external distinction in one number: the pixels
+    /// behind a real cutout do not exist, so content starts below it. A display without one
+    /// gets ordinary padding — reserving notch-sized space there would just look like a bug.
+    public static func contentTopOffset(notchClearance: CGFloat, expanded: Bool) -> CGFloat {
+        notchClearance > 0 ? notchClearance + topGap : padding(expanded: expanded)
+    }
+
+    /// Resting size of a top-placed panel that shows its rings. Without that setting the
+    /// panel is just the cutout (or the pill) and this is not used.
+    public static func topCollapsedSize(notchSize: CGSize, notchClearance: CGFloat,
+                                        ringCount: Int) -> CGSize {
+        let row = stackLength(ringCount: ringCount, expanded: false) + 2 * collapsedPadding
+        let height = contentTopOffset(notchClearance: notchClearance, expanded: false)
+            + collapsedRingDiameter + collapsedPadding
+        // Only a real cutout sets a floor: the panel must cover it, or a strip of the notch
+        // shows either side. On a display without one the panel is simply as big as its rings.
+        guard notchClearance > 0 else { return CGSize(width: row, height: height) }
+        return CGSize(width: max(row, notchSize.width), height: max(height, notchSize.height))
+    }
+
+    public static func expandedSize(placement: NotchPlacement, collapsed: CGSize,
+                                    ringCount: Int, notchClearance: CGFloat = 0) -> CGSize {
         let content = stackLength(ringCount: ringCount, expanded: true) + 2 * padding
         if placement.ringsAreVertical {
             // Never smaller than the resting panel, or it would poke out from under the
@@ -83,16 +105,17 @@ public enum NotchMetrics {
             return CGSize(width: max(ringDiameter + 2 * padding, collapsed.width),
                           height: max(content, collapsed.height))
         }
-        // Under the notch the content must clear the hardware cutout.
+        let height = contentTopOffset(notchClearance: notchClearance, expanded: true)
+            + ringDiameter + padding
         return CGSize(width: max(content, collapsed.width),
-                      height: max(collapsed.height + topGap + ringDiameter + padding,
-                                  collapsed.height))
+                      height: max(height, collapsed.height))
     }
 
     /// Window big enough for the expanded panel *and* its popover, whichever way it opens.
     public static func windowSize(placement: NotchPlacement, collapsed: CGSize,
-                                  ringCount: Int) -> CGSize {
-        let panel = expandedSize(placement: placement, collapsed: collapsed, ringCount: ringCount)
+                                  ringCount: Int, notchClearance: CGFloat = 0) -> CGSize {
+        let panel = expandedSize(placement: placement, collapsed: collapsed,
+                                 ringCount: ringCount, notchClearance: notchClearance)
         switch placement {
         case .topCenter:
             return CGSize(width: max(panel.width, popoverWidth + 2 * popoverGap),
