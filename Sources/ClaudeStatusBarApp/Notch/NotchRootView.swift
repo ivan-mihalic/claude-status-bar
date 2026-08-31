@@ -84,15 +84,6 @@ public struct NotchRootView: View {
     /// Rings and gear are only fully shown once the panel is open — or, on an edge, always.
     private var contentVisible: Bool { expanded || showsRingsAtRest }
 
-    /// Content grows out of the edge the panel is anchored to, so the motion has a source.
-    private var contentAnchor: UnitPoint {
-        switch layout.placement {
-        case .topCenter: return .top
-        case .leftEdge:  return .leading
-        case .rightEdge: return .trailing
-        }
-    }
-
     /// The corner the popover unrolls from — always the side facing the panel.
     private var popoverAnchor: UnitPoint {
         switch layout.placement.popoverSide {
@@ -141,8 +132,11 @@ public struct NotchRootView: View {
                                 // that isn't there.
                                 .padding(.top, layout.placement.ringsAreVertical
                                          ? 0 : layout.contentTopOffset(expanded: expanded))
+                                // Fade in place — deliberately no scale or offset. Scaling
+                                // from an anchored edge made the rings and the gear look like
+                                // they were flying in from outside the panel instead of
+                                // simply becoming visible inside it.
                                 .opacity(contentVisible ? 1 : 0)
-                                .scaleEffect(contentVisible ? 1 : 0.84, anchor: contentAnchor)
                                 // Its own animation overrides the container's for this
                                 // subtree, which is the whole point of staging them.
                                 .animation(NotchAnimation.content(expanded: expanded),
