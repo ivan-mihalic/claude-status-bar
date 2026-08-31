@@ -92,6 +92,15 @@ public final class AccountManager {
         persist()
     }
 
+    /// Show or hide this account's percentages in the menu-bar label. It keeps syncing and
+    /// still drives the gauge icon either way.
+    public func setShownInMenuBar(_ id: UUID, _ shown: Bool) {
+        guard var a = appState.accounts.first(where: { $0.id == id }) else { return }
+        a.showInMenuBar = shown
+        appState.upsert(a)
+        persist()
+    }
+
     public func setLabel(_ id: UUID, _ label: String) {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,

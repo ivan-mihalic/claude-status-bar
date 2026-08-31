@@ -27,6 +27,10 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     /// accounts saved before the panel existed decode as `nil`, and `nil` means shown —
     /// turning a feature on must not silently hide someone's account.
     public var showInNotch: Bool?
+    /// Whether this account's percentages appear in the menu-bar label. Optional for decode
+    /// compatibility; `nil` means shown. Hiding is about menu-bar width — a hidden account
+    /// still syncs and still drives the warning icon.
+    public var showInMenuBar: Bool?
     /// Which service the account belongs to. Optional for decode compatibility; `nil` is
     /// Claude, the only provider the app can talk to today.
     public var provider: Provider?
@@ -35,12 +39,13 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
                 syncInterval: Int, status: AccountStatus,
                 lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?,
                 menuBarPrefix: String? = nil, showInNotch: Bool? = nil,
-                provider: Provider? = nil) {
+                showInMenuBar: Bool? = nil, provider: Provider? = nil) {
         self.id = id; self.label = label; self.accountUuid = accountUuid
         self.syncInterval = syncInterval; self.status = status
         self.lastSnapshot = lastSnapshot; self.lastSyncedAt = lastSyncedAt
         self.menuBarPrefix = menuBarPrefix
         self.showInNotch = showInNotch
+        self.showInMenuBar = showInMenuBar
         self.provider = provider
     }
 
@@ -48,6 +53,9 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
 
     /// Shown in the notch unless explicitly hidden.
     public var isShownInNotch: Bool { showInNotch ?? true }
+
+    /// Listed in the menu-bar label unless explicitly hidden.
+    public var isShownInMenuBar: Bool { showInMenuBar ?? true }
 
     public var effectiveProvider: Provider { provider ?? .claude }
 }

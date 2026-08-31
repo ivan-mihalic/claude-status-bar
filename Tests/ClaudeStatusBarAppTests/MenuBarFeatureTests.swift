@@ -56,3 +56,42 @@ private func mkAccount(prefix: String?, session: Double?, week: Double?, premium
                          status: .never, lastSnapshot: nil, lastSyncedAt: nil)
     #expect(MenuBarLabel.text(accounts: [a, noData], showAccountPercents: true) == "20/19  …")
 }
+
+// MARK: Hiding accounts from the menu bar
+
+private func mkVisible(_ prefix: String, _ pct: Double, shownInMenuBar: Bool? = nil) -> Account {
+    var a = mkAccount(prefix: prefix, session: pct, week: pct, premium: nil)
+    a.showInMenuBar = shownInMenuBar
+    return a
+}
+
+@Test func hiddenAccounts_dropOutOfThePerAccountLabel() {
+    let shown = mkVisible("W", 20)
+    let hidden = mkVisible("P", 30, shownInMenuBar: false)
+    let text = MenuBarLabel.text(accounts: [shown, hidden], showAccountPercents: true)
+    #expect(text.contains("W"))
+    #expect(!text.contains("P"))
+}
+
+@Test func accountsSavedBeforeTheSetting_stayInTheMenuBar() {
+    // `nil` must mean visible: adding a switch may not silently blank someone's menu bar.
+    let legacy = mkVisible("W", 20)
+    #expect(legacy.showInMenuBar == nil)
+    #expect(legacy.isShownInMenuBar)
+    #expect(MenuBarLabel.text(accounts: [legacy], showAccountPercents: true).contains("W"))
+}
+
+@Test func aHiddenAccountStillDrivesTheWarningIcon() {
+    // Hiding is about menu-bar width, not about muting an account. If a hidden account were
+    // dropped from the maximum, the app would quietly stop warning about it.
+    let shown = mkVisible("W", 10)
+    let hidden = mkVisible("P", 95, shownInMenuBar: false)
+    #expect(MenuBarLabel.text(accounts: [shown, hidden], showAccountPercents: false) == "95%")
+}
+
+@Test func hidingEveryAccount_fallsBackToTheOverallNumber() {
+    // An empty label next to the icon reads as a broken app; the single worst number does not.
+    let a = mkVisible("W", 20, shownInMenuBar: false)
+    let b = mkVisible("P", 40, shownInMenuBar: false)
+    #expect(MenuBarLabel.text(accounts: [a, b], showAccountPercents: true) == "40%")
+}

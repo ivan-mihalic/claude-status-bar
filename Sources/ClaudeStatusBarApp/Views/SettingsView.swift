@@ -2,11 +2,12 @@
 import SwiftUI
 
 public struct SettingsView: View {
+    @Bindable var env: AppEnvironment
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @AppStorage("showDockIcon") private var showDockIcon = false
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
-    public init() {}
+    public init(env: AppEnvironment) { self.env = env }
 
     public var body: some View {
         Form {

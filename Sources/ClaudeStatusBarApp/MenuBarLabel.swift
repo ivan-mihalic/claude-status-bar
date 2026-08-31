@@ -3,13 +3,18 @@ import ClaudeStatusBarCore
 
 /// Computes the text shown next to the menu-bar gauge icon.
 public enum MenuBarLabel {
-    /// - showAccountPercents ON  → for every account: "<prefix> S/W[/P]" (session/week/premium
-    ///   percentages, rounded), joined by two spaces.
+    /// - showAccountPercents ON  → for every account the user kept in the menu bar:
+    ///   "<prefix> S/W[/P]" (session/week/premium percentages, rounded), joined by two spaces.
     /// - showAccountPercents OFF → the single highest utilization across all accounts/windows
     ///   (e.g. "62%"), or "—" when there's no data.
+    ///
+    /// Hiding an account only shortens the label. The maximum below is deliberately taken
+    /// over *every* account, hidden ones included: hiding is about menu-bar width, and an app
+    /// that quietly stopped warning about an account would be worse than a long label.
     public static func text(accounts: [Account], showAccountPercents: Bool) -> String {
-        if showAccountPercents && !accounts.isEmpty {
-            return accounts.map(perAccount).joined(separator: "  ")
+        let listed = accounts.filter(\.isShownInMenuBar)
+        if showAccountPercents && !listed.isEmpty {
+            return listed.map(perAccount).joined(separator: "  ")
         }
         guard let max = overallMax(accounts) else { return "—" }
         return "\(Int(max.rounded()))%"
