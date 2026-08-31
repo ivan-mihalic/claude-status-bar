@@ -90,17 +90,27 @@ open**, and every action lives in it (you never need the popover for anything):
 - **About** — the app icon, version, a link to this repo, and **Check for Updates…**.
 
 ### Notch panel (optional, off by default)
-Turn on **Settings → Show usage rings in the notch** for a panel anchored to the MacBook notch —
-or, on a display without one, a pill over the middle of the menu bar. Hover it and it expands
-into one ring per account: the account's **worst** window, colour-coded on the same 70 % / 90 %
-thresholds as the menu-bar icon, with the percentage underneath and a gear that opens the
-Dashboard.
+The sidebar's **Notch Panel** screen turns on a floating panel with one ring per account. Each
+ring is two arcs: the **outer** is the worst weekly limit, the **inner** is the current session.
+The account's **Menu label** prefix, if it has one, sits in the middle.
+
+Three positions:
+
+| Position | At rest | On hover |
+|---|---|---|
+| **Top (notch)** | hidden inside the MacBook notch — a pill over the middle of the menu bar on displays without one | grows downwards, rings in a row |
+| **Left / right edge** | small rings, **always visible**, at a height you pick with a slider | rings grow, a gear appears |
+
+Point at a ring and its details open beside the panel (below it at the top, to the side on an
+edge): every limit window with its own bar, percentage and reset time. That popover is the only
+place a number is written out — the rings themselves stay uncluttered.
 
 When a number can't be trusted, the ring says so instead of quietly showing a stale one — the
-glyph in the middle becomes **offline**, **needs sign-in**, **rate limited** or **syncing**.
+middle becomes **offline**, **needs sign-in**, **rate limited** or **syncing**, and the popover
+spells it out.
 
 The menu-bar icon is unaffected: the notch is a second view of the same data, not a replacement,
-and turning the setting off removes the panel immediately.
+and turning it off removes the panel immediately.
 
 ### Updates
 The app checks for updates automatically via **Sparkle**; you can also trigger a check from

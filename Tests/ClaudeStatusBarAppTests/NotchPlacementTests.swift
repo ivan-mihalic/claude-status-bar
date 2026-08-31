@@ -98,3 +98,44 @@ private func frames(_ p: NotchPlacement, ringIndex: Int = 0, rings: Int = 3) -> 
     #expect(f.popover == nil)
     #expect(f.shape.size == layout(.topCenter).collapsed.size)
 }
+
+// MARK: Rings visible at rest on the edges
+
+@Test func edgePanel_atRestIsSizedForItsRings() {
+    // The edge panel shows its rings without being hovered, so its resting size has to grow
+    // with the account count — unlike the top one, which hides in the notch.
+    let one = NotchGeometry.layout(for: plain, placement: .leftEdge, ringCount: 1).collapsed
+    let four = NotchGeometry.layout(for: plain, placement: .leftEdge, ringCount: 4).collapsed
+    #expect(four.height > one.height)
+    #expect(four.width == one.width)
+    // No accounts: nothing to show, so it falls back to a plain stub.
+    #expect(NotchGeometry.layout(for: plain, placement: .leftEdge, ringCount: 0).collapsed.size
+            == NotchMetrics.syntheticEdgeSize)
+}
+
+@Test func topPanel_atRestIgnoresTheRingCount() {
+    let one = NotchGeometry.layout(for: plain, placement: .topCenter, ringCount: 1).collapsed
+    let four = NotchGeometry.layout(for: plain, placement: .topCenter, ringCount: 4).collapsed
+    #expect(one == four)
+}
+
+@Test func restingRingsAreSmallerThanOpenOnes() {
+    #expect(NotchMetrics.ringDiameter(expanded: false) < NotchMetrics.ringDiameter(expanded: true))
+    #expect(NotchMetrics.stackLength(ringCount: 3, expanded: false)
+            < NotchMetrics.stackLength(ringCount: 3, expanded: true))
+    // The gear only exists once the panel is open.
+    #expect(NotchMetrics.stackLength(ringCount: 0, expanded: false)
+            == NotchMetrics.collapsedRingDiameter)
+}
+
+@Test func ringHitTest_followsTheSizeCurrentlyDrawn() {
+    // A pointer on the third resting ring must not be read against the open geometry, or
+    // the wrong account's details open.
+    let layout = NotchGeometry.layout(for: plain, placement: .leftEdge, ringCount: 4)
+    let frames = NotchGeometry.frames(layout: layout, expanded: false, ringCount: 4, popover: nil)
+    let third = layout.ringCentre(index: 2, in: frames.shape, expanded: false)
+    #expect(NotchGeometry.ringIndex(at: third, layout: layout, shape: frames.shape,
+                                   ringCount: 4, expanded: false) == 2)
+    #expect(NotchGeometry.ringIndex(at: third, layout: layout, shape: frames.shape,
+                                   ringCount: 4, expanded: true) != 2)
+}

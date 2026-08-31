@@ -25,6 +25,8 @@ public final class NotchWindowController {
     private var enabled = false
     private var placement: NotchPlacement = .topCenter
     private var edgeOffsetPercent: Double = 50
+    private var expandOnHover = true
+    private var showPopover = true
 
     public init(env: AppEnvironment, onOpenDashboard: @escaping () -> Void = {}) {
         self.env = env
@@ -46,6 +48,17 @@ public final class NotchWindowController {
         rebuild()
     }
 
+    /// Behaviour switches from the Notch Panel screen. These change what a pointer move
+    /// means, not the window, so nothing is rebuilt — but a panel already open under the
+    /// pointer is collapsed, or the setting would appear not to take effect until the
+    /// pointer next moved.
+    public func setBehaviour(expandOnHover: Bool, showPopover: Bool) {
+        guard expandOnHover != self.expandOnHover || showPopover != self.showPopover else { return }
+        self.expandOnHover = expandOnHover
+        self.showPopover = showPopover
+        pointerMoved(to: nil)
+    }
+
     /// Rebuild against the current screens and settings. Idempotent — call it freely.
     public func rebuild() {
         guard enabled else { return }
@@ -56,11 +69,21 @@ public final class NotchWindowController {
 
     private var ringCount: Int { min(env.appState.accounts.count, NotchMetrics.maxRings) }
 
+    /// The resting edge panel is sized from the account count, so adding or removing an
+    /// account changes the window itself, not just what is drawn in it.
+    public func accountsChanged() {
+        guard enabled, let layout, layout.placement.isEdge else { return }
+        if layout.collapsed.size != NotchMetrics.edgeCollapsedSize(ringCount: ringCount) {
+            rebuild()
+        }
+    }
+
     private func build() {
         guard let screen = NSScreen.main else { return }
         let layout = NotchGeometry.layout(for: NotchGeometry.metrics(of: screen),
                                           placement: placement,
-                                          edgeOffsetPercent: edgeOffsetPercent)
+                                          edgeOffsetPercent: edgeOffsetPercent,
+                                          ringCount: ringCount)
         self.layout = layout
         let windowSize = NotchMetrics.windowSize(placement: placement,
                                                  collapsed: layout.collapsed.size,
@@ -112,7 +135,7 @@ public final class NotchWindowController {
         var nextExpanded = false
         var nextPopover: Int?
 
-        if let point {
+        if let point, expandOnHover {
             let inShape = NotchShape(flushEdge: layout.placement.flushEdge)
                 .cgPath(in: frames.shape).contains(point)
             // The popover keeps the panel open while the pointer is on it — including the
@@ -121,11 +144,11 @@ public final class NotchWindowController {
                 .map { $0.insetBy(dx: -NotchMetrics.popoverGap, dy: -NotchMetrics.popoverGap)
                         .contains(point) } ?? false
             nextExpanded = inShape || inPopover
-            if nextExpanded {
+            if nextExpanded && showPopover {
                 nextPopover = inPopover
                     ? popoverIndex
-                    : NotchGeometry.ringIndex(at: point, layout: layout,
-                                              shape: frames.shape, ringCount: ringCount)
+                    : NotchGeometry.ringIndex(at: point, layout: layout, shape: frames.shape,
+                                              ringCount: ringCount, expanded: expanded)
             }
         }
 

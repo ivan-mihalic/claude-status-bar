@@ -33,10 +33,14 @@ public struct NotchRootView: View {
         CGPoint(x: rect.midX, y: window.height - rect.midY)
     }
 
-    @ViewBuilder private var ringStack: some View {
+    /// The rings, at whichever size the current state calls for. An edge panel keeps them
+    /// on show at rest — there is no hardware cutout to hide in, so an empty black bar would
+    /// just be a black bar.
+    @ViewBuilder private func ringStack(expanded: Bool) -> some View {
         let models = rings
         let content = ForEach(Array(models.enumerated()), id: \.element.id) { index, model in
-            UsageRingView(model: model)
+            UsageRingView(model: model,
+                          diameter: NotchMetrics.ringDiameter(expanded: expanded))
                 .opacity(popoverIndex == nil || popoverIndex == index ? 1 : 0.55)
         }
         let gear = Button(action: onOpenDashboard) {
@@ -49,24 +53,37 @@ public struct NotchRootView: View {
         .buttonStyle(.plain)
         .help("Open Dashboard")
 
+        let spacing = NotchMetrics.ringSpacing(expanded: expanded)
         if layout.placement.ringsAreVertical {
-            VStack(spacing: NotchMetrics.ringSpacing) {
-                if models.isEmpty { emptyNote } else { content }
-                gear
+            VStack(spacing: spacing) {
+                if models.isEmpty { emptyNote(expanded: expanded) } else { content }
+                if expanded { gear }
             }
         } else {
-            HStack(spacing: NotchMetrics.ringSpacing) {
-                if models.isEmpty { emptyNote } else { content }
-                gear
+            HStack(spacing: spacing) {
+                if models.isEmpty { emptyNote(expanded: expanded) } else { content }
+                if expanded { gear }
             }
         }
     }
 
-    private var emptyNote: some View {
-        Text("No accounts")
-            .font(.caption2).foregroundStyle(.white.opacity(0.7))
-            .frame(width: NotchMetrics.ringDiameter, height: NotchMetrics.ringDiameter)
+    @ViewBuilder private func emptyNote(expanded: Bool) -> some View {
+        let d = NotchMetrics.ringDiameter(expanded: expanded)
+        if expanded {
+            Text("No accounts")
+                .font(.caption2).foregroundStyle(.white.opacity(0.7))
+                .frame(width: d, height: d)
+        } else {
+            Image(systemName: "gauge.medium")
+                .font(.system(size: d * 0.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(width: d, height: d)
+        }
     }
+
+    /// At rest the top placement shows nothing (it is hiding in the notch); an edge panel
+    /// shows its rings.
+    private var showsRingsAtRest: Bool { layout.placement.isEdge }
 
     public var body: some View {
         // 60s cadence: every relative time in the popover is minute-granular.
@@ -84,11 +101,10 @@ public struct NotchRootView: View {
                     .fill(.black)
                     .frame(width: frames.shape.width, height: frames.shape.height)
                     .overlay {
-                        if expanded {
-                            ringStack
+                        if expanded || showsRingsAtRest {
+                            ringStack(expanded: expanded)
                                 .padding(.top, layout.placement.ringsAreVertical
                                          ? 0 : layout.collapsed.height + NotchMetrics.topGap)
-                                .transition(.opacity)
                         }
                     }
                     .position(centre(of: frames.shape, in: frames.window))

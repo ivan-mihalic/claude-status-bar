@@ -90,15 +90,17 @@ public struct NotchLayout: Equatable, Sendable {
         }
     }
 
-    /// Centre of ring `index` inside `shape`, along the axis the rings run on.
-    public func ringCentre(index: Int, in shape: CGRect) -> CGPoint {
-        let step = NotchMetrics.ringDiameter + NotchMetrics.ringSpacing
-        let lead = NotchMetrics.padding + NotchMetrics.ringDiameter / 2 + CGFloat(index) * step
+    /// Centre of ring `index` inside `shape`, along the axis the rings run on. The rings are
+    /// smaller at rest than when the panel is open, so the state has to be passed in.
+    public func ringCentre(index: Int, in shape: CGRect, expanded: Bool) -> CGPoint {
+        let d = NotchMetrics.ringDiameter(expanded: expanded)
+        let step = d + NotchMetrics.ringSpacing(expanded: expanded)
+        let lead = NotchMetrics.padding(expanded: expanded) + d / 2 + CGFloat(index) * step
         if placement.ringsAreVertical {
             return CGPoint(x: shape.midX, y: shape.maxY - lead)
         }
         // Under the notch the rings sit below the hardware cutout.
-        let top = shape.maxY - collapsed.height - NotchMetrics.topGap - NotchMetrics.ringDiameter / 2
+        let top = shape.maxY - collapsed.height - NotchMetrics.topGap - d / 2
         return CGPoint(x: shape.minX + lead, y: top)
     }
 }
@@ -110,9 +112,12 @@ public enum NotchGeometry {
     /// - Parameter edgeOffsetPercent: 0 = top of the screen, 100 = bottom. Ignored for
     ///   `.topCenter`. Clamped, so a nonsense value parks the panel at an edge rather than
     ///   off-screen.
+    /// - Parameter ringCount: needed for the edge placements, whose resting panel shows the
+    ///   rings and therefore grows with the number of accounts.
     public static func layout(for m: ScreenMetrics,
                               placement: NotchPlacement = .topCenter,
-                              edgeOffsetPercent: Double = 50) -> NotchLayout {
+                              edgeOffsetPercent: Double = 50,
+                              ringCount: Int = 0) -> NotchLayout {
         switch placement {
         case .topCenter:
             if m.topInset > 0, let aux = m.auxiliaryTopLeftWidth, aux > 0 {
@@ -133,7 +138,7 @@ public enum NotchGeometry {
                                collapsed: rect, screen: m.frame)
 
         case .leftEdge, .rightEdge:
-            let size = NotchMetrics.syntheticEdgeSize
+            let size = NotchMetrics.edgeCollapsedSize(ringCount: ringCount)
             let p = min(max(edgeOffsetPercent, 0), 100) / 100
             let centreY = m.frame.maxY - p * m.frame.height
             let y = min(max(centreY - size.height / 2, m.frame.minY),
@@ -163,7 +168,7 @@ public enum NotchGeometry {
 
         let w = NotchMetrics.popoverWidth
         let h = NotchMetrics.popoverHeight(windowCount: popover.windowCount)
-        let centre = layout.ringCentre(index: popover.index, in: shape)
+        let centre = layout.ringCentre(index: popover.index, in: shape, expanded: true)
         let rect: CGRect
         switch layout.placement.popoverSide {
         case .below:
@@ -182,17 +187,18 @@ public enum NotchGeometry {
     /// Which ring the pointer is over, if any. Computed here rather than with SwiftUI's
     /// `.onHover` because the panel lives in a non-key window of a background app, where
     /// SwiftUI's hover tracking does not fire.
-    public static func ringIndex(at point: CGPoint, layout: NotchLayout,
-                                 shape: CGRect, ringCount: Int) -> Int? {
+    public static func ringIndex(at point: CGPoint, layout: NotchLayout, shape: CGRect,
+                                 ringCount: Int, expanded: Bool) -> Int? {
         guard ringCount > 0 else { return nil }
-        // Half a gap of slack either side, so the gaps between rings belong to the nearer
-        // one instead of closing the popover as the pointer slides down the stack.
-        let reach = NotchMetrics.ringDiameter / 2 + NotchMetrics.ringSpacing / 2
+        let d = NotchMetrics.ringDiameter(expanded: expanded)
+        // Half a gap of slack either side, so the space between rings belongs to the nearer
+        // one instead of closing the popover as the pointer slides along the stack.
+        let reach = d / 2 + NotchMetrics.ringSpacing(expanded: expanded) / 2
         for index in 0..<min(ringCount, NotchMetrics.maxRings) {
-            let c = layout.ringCentre(index: index, in: shape)
+            let c = layout.ringCentre(index: index, in: shape, expanded: expanded)
             let along = layout.placement.ringsAreVertical ? abs(point.y - c.y) : abs(point.x - c.x)
             let across = layout.placement.ringsAreVertical ? abs(point.x - c.x) : abs(point.y - c.y)
-            if along <= reach && across <= NotchMetrics.ringDiameter / 2 + 4 { return index }
+            if along <= reach && across <= d / 2 + 4 { return index }
         }
         return nil
     }

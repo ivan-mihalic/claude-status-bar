@@ -12,6 +12,8 @@ struct ClaudeStatusBarMain: App {
     @AppStorage("showNotchPanel") private var showNotchPanel = false
     @AppStorage("notchPlacement") private var notchPlacement = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var notchEdgeOffset = 50.0
+    @AppStorage("notchExpandOnHover") private var notchExpandOnHover = true
+    @AppStorage("notchShowPopover") private var notchShowPopover = true
     @Environment(\.openWindow) private var openWindow
     @State private var notch: NotchWindowController?
     private let updaterUIDelegate = UpdaterUIDelegate()
@@ -42,8 +44,19 @@ struct ClaudeStatusBarMain: App {
             }
             controller.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                     edgeOffsetPercent: notchEdgeOffset)
+            controller.setBehaviour(expandOnHover: notchExpandOnHover,
+                                    showPopover: notchShowPopover)
             controller.setEnabled(on)
         }
+        .onChange(of: notchExpandOnHover) { _, _ in
+            notch?.setBehaviour(expandOnHover: notchExpandOnHover, showPopover: notchShowPopover)
+        }
+        .onChange(of: notchShowPopover) { _, _ in
+            notch?.setBehaviour(expandOnHover: notchExpandOnHover, showPopover: notchShowPopover)
+        }
+        // An edge panel is sized from the account count, so the window itself changes when
+        // accounts come and go.
+        .onChange(of: env.appState.accounts.count) { _, _ in notch?.accountsChanged() }
         .onChange(of: notchPlacement) { _, _ in
             notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                 edgeOffsetPercent: notchEdgeOffset)

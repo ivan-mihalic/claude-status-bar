@@ -9,12 +9,13 @@ import Observation
 @Observable
 public final class AppRouter {
     public enum Section: String, Hashable, CaseIterable, Identifiable {
-        case dashboard, addAccount, settings, about
+        case dashboard, addAccount, notch, settings, about
         public var id: String { rawValue }
         public var title: String {
             switch self {
             case .dashboard: "Dashboard"
             case .addAccount: "Add Account"
+            case .notch: "Notch Panel"
             case .settings: "Settings"
             case .about: "About"
             }
@@ -23,6 +24,7 @@ public final class AppRouter {
             switch self {
             case .dashboard: "gauge.medium"
             case .addAccount: "plus.circle"
+            case .notch: "rectangle.tophalf.inset.filled"
             case .settings: "gearshape"
             case .about: "info.circle"
             }
