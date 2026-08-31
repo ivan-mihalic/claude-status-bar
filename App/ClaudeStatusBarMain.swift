@@ -9,6 +9,9 @@ struct ClaudeStatusBarMain: App {
     @State private var env = AppEnvironment()
     @State private var router = AppRouter()
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
+    @AppStorage("showNotchPanel") private var showNotchPanel = false
+    @Environment(\.openWindow) private var openWindow
+    @State private var notch: NotchWindowController?
     private let updaterUIDelegate = UpdaterUIDelegate()
     private let updaterController: SPUStandardUpdaterController
 
@@ -22,6 +25,21 @@ struct ClaudeStatusBarMain: App {
             Text(MenuBarLabel.text(accounts: env.appState.accounts, showAccountPercents: showAccountPercents))
         }
         .menuBarExtraStyle(.window)
+        // The notch panel is a second *view* of the same AppState, never a second source of
+        // truth, and it is off unless the user asks for it.
+        .onChange(of: showNotchPanel, initial: true) { _, on in
+            let controller = notch ?? {
+                let made = NotchWindowController(env: env)
+                notch = made
+                return made
+            }()
+            controller.onOpenDashboard = {
+                router.show(.dashboard)
+                DockController.shared.prepareToShowWindow()
+                openWindow(id: "main")
+            }
+            controller.setEnabled(on)
+        }
 
         // A single window (not a WindowGroup) → at most one app window ever. Its
         // sidebar switches between Dashboard / Add Account / Settings / About, so every

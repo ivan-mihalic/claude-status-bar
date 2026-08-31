@@ -5,6 +5,7 @@ public struct SettingsView: View {
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @AppStorage("showDockIcon") private var showDockIcon = false
+    @AppStorage("showNotchPanel") private var showNotchPanel = false
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     public init() {}
 
@@ -21,6 +22,10 @@ public struct SettingsView: View {
                     DockController.shared.setShowDock(on)
                 }
             Toggle("Show each account's percentages in the menu bar", isOn: $showAccountPercents)
+            Toggle("Show usage rings in the notch", isOn: $showNotchPanel)
+            Text("Adds a panel at the top of the screen. On Macs without a notch it appears "
+                 + "as a pill over the middle of the menu bar. The menu-bar icon stays either way.")
+                .font(.caption).foregroundStyle(.secondary)
             Text("Add a short prefix per account in the Dashboard to tell them apart.")
                 .font(.caption).foregroundStyle(.secondary)
         }
