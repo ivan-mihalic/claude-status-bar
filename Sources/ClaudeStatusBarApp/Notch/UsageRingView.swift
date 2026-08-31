@@ -81,11 +81,12 @@ public struct UsageRingView: View {
             centre
         }
         .frame(width: diameter, height: diameter)
-        // The provider mark rides the ring's top-right shoulder, pulled outwards so it reads
-        // as a badge on the ring rather than another thing inside it.
+        // The provider mark sits off the ring's top-right shoulder rather than on it: pushed
+        // far enough out that it clears the outer arc, which is the arc carrying the weekly
+        // number and the one worth reading at a glance.
         .overlay(alignment: .topTrailing) {
-            ProviderMarkView(provider: model.provider, diameter: max(diameter * 0.34, 11))
-                .offset(x: diameter * 0.10, y: -diameter * 0.10)
+            ProviderMarkView(provider: model.provider, diameter: max(diameter * 0.32, 11))
+                .offset(x: diameter * 0.22, y: -diameter * 0.22)
         }
         .contentShape(Circle())
         .help(model.label)

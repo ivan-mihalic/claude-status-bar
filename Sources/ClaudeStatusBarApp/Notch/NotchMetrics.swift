@@ -14,8 +14,8 @@ public enum NotchMetrics {
     public static let collapsedRingDiameter: CGFloat = 24
     public static let ringSpacing: CGFloat = 14
     public static let collapsedRingSpacing: CGFloat = 8
-    public static let padding: CGFloat = 12
-    public static let collapsedPadding: CGFloat = 7
+    public static let padding: CGFloat = 14
+    public static let collapsedPadding: CGFloat = 9
     /// Gap between a hardware notch (which we must not draw inside) and the first ring.
     public static let topGap: CGFloat = 8
 
