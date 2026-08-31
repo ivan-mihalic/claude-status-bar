@@ -22,6 +22,9 @@ but for every account you connect, always visible in your menu bar.
   limit lifts (re-checking at least hourly). Clicking *"synced N min ago"* always wins over
   whatever the background poll is doing, so a manual sync can't be undone by a slow request
   that started before it.
+- **Stays signed in.** Refreshing an account's credentials is serialised, so two syncs
+  running at once can't spend the same rotated token and lock each other out, and only a
+  server response that actually says the grant is gone asks you to sign in again.
 - **Self-updating** via [Sparkle](https://sparkle-project.org) — no Mac App Store.
 
 > **Status:** functional; **signed with a Developer ID Application certificate, Hardened
