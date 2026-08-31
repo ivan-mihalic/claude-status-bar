@@ -85,8 +85,22 @@ open**, and every action lives in it (you never need the popover for anything):
 - **Add Account** — the sign-in flow above.
 - **Settings** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
   default; the app lives in the menu bar), and **Show each account's percentages in the menu bar**
-  (uses the per-account "Menu label" prefixes to tell accounts apart, e.g. `W 20/19/5  P 30/40`).
+  (uses the per-account "Menu label" prefixes to tell accounts apart, e.g. `W 20/19/5  P 30/40`),
+  and **Show usage rings in the notch** (see below).
 - **About** — the app icon, version, a link to this repo, and **Check for Updates…**.
+
+### Notch panel (optional, off by default)
+Turn on **Settings → Show usage rings in the notch** for a panel anchored to the MacBook notch —
+or, on a display without one, a pill over the middle of the menu bar. Hover it and it expands
+into one ring per account: the account's **worst** window, colour-coded on the same 70 % / 90 %
+thresholds as the menu-bar icon, with the percentage underneath and a gear that opens the
+Dashboard.
+
+When a number can't be trusted, the ring says so instead of quietly showing a stale one — the
+glyph in the middle becomes **offline**, **needs sign-in**, **rate limited** or **syncing**.
+
+The menu-bar icon is unaffected: the notch is a second view of the same data, not a replacement,
+and turning the setting off removes the panel immediately.
 
 ### Updates
 The app checks for updates automatically via **Sparkle**; you can also trigger a check from
