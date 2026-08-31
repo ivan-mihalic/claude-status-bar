@@ -13,8 +13,52 @@ public final class NotchHostingView<Content: View>: NSHostingView<Content> {
     /// Current opaque region, in CoreGraphics (bottom-left origin) coordinates of this view.
     public var interactivePath: CGPath?
 
+    /// The pointer is inside this window, or has just left it.
+    ///
+    /// A tracking area is the one hover source that works here, and it is the reason this
+    /// app no longer watches the mouse globally. The panel is a non-key window of a
+    /// background app, so SwiftUI's `onHover` and a local event monitor are both silent —
+    /// but `NSTrackingArea` with `.activeAlways` reports enter, move and exit regardless of
+    /// key or active state, and it only fires when the pointer is actually here. A global
+    /// monitor, by contrast, woke this process on every pointer move anywhere on screen.
+    public var onPointerInside: (() -> Void)?
+    public var onPointerExited: (() -> Void)?
+
+    private var hoverArea: NSTrackingArea?
+
     public required init(rootView: Content) {
         super.init(rootView: rootView)
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        // Only ever removes the area this class installed: `NSHostingView` keeps its own for
+        // SwiftUI hover, and tearing those out would break `.help` tooltips and button
+        // highlighting inside the panel.
+        if let hoverArea, trackingAreas.contains(hoverArea) { removeTrackingArea(hoverArea) }
+        // `.inVisibleRect` keeps the area glued to the bounds, which matters because the
+        // window is resized whenever the panel opens or closes.
+        let area = NSTrackingArea(rect: .zero,
+                                  options: [.activeAlways, .inVisibleRect,
+                                            .mouseEnteredAndExited, .mouseMoved],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    public override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        onPointerInside?()
+    }
+
+    public override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        onPointerInside?()
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        onPointerExited?()
     }
 
     @available(*, unavailable)
@@ -43,8 +87,11 @@ public final class NotchPanel: NSPanel {
         hasShadow = false
         isMovable = false
         isMovableByWindowBackground = false
-        // Starts transparent to clicks: the controller turns this off only while the pointer
-        // is actually on the panel. Anything else is an invisible wall over the desktop.
+        // Starts transparent to clicks; the controller turns this off as soon as the panel is
+        // on screen. It has to be off for the tracking area to ever fire — a window that
+        // ignores mouse events is not told the pointer arrived — and it is safe to leave off
+        // because the resting window is exactly the panel, with no transparent margin around
+        // it to form an invisible wall over the desktop.
         ignoresMouseEvents = true
         acceptsMouseMovedEvents = true
         hidesOnDeactivate = false

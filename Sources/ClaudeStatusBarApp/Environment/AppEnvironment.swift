@@ -9,6 +9,10 @@ public final class AppEnvironment {
     public let appState = AppState()
     public let accountManager: AccountManager
     public let syncCoordinator: SyncCoordinator
+    public let energyMonitor = EnergyMonitor()
+    /// Set by the scene so the notch panel can react to the same conditions the sync loop
+    /// does — it has to come from up there, because the panel controller lives in the scene.
+    public var onEnergyConditionsChanged: ((EnergyConditions) -> Void)?
 
     private let snapshotStore: SnapshotStore
 
@@ -51,6 +55,13 @@ public final class AppEnvironment {
     public func bootstrap() {
         do { (try snapshotStore.load()).forEach { appState.upsert($0) } }
         catch { appState.report("Couldn't load saved accounts: \(error)") }
+        energyMonitor.onChange = { [weak self] conditions in
+            guard let self else { return }
+            self.syncCoordinator.updateConditions(conditions)
+            self.onEnergyConditionsChanged?(conditions)
+        }
+        energyMonitor.start()
+        syncCoordinator.updateConditions(energyMonitor.conditions)
         syncCoordinator.start()
     }
 }

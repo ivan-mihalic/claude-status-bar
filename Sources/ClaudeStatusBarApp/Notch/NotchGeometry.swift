@@ -175,13 +175,34 @@ public enum NotchGeometry {
         }
     }
 
+    /// Frame of the window that holds the *resting* panel: exactly the drawn shape, placed
+    /// where that shape sits inside the expanded window.
+    ///
+    /// Derived from the expanded frame rather than from `layout.collapsed` on purpose. The
+    /// expanded window gets clamped to the screen, and near the top or bottom edge that clamp
+    /// moves the shape — computing the resting frame independently would let the panel jump
+    /// at the moment it grows. This way the two agree by construction.
+    public static func collapsedWindowFrame(layout: NotchLayout, expandedFrame: CGRect,
+                                            windowSize: CGSize) -> CGRect {
+        let local = layout.shapeRect(windowSize: windowSize, size: layout.collapsed.size)
+        return CGRect(origin: CGPoint(x: expandedFrame.minX + local.minX,
+                                      y: expandedFrame.minY + local.minY),
+                      size: layout.collapsed.size)
+    }
+
     /// Everything that gets drawn, for one state of the panel.
+    ///
+    /// - Parameter windowSize: the window these rects are drawn into. `nil` means the biggest
+    ///   the panel ever needs — the size used while it is open. The resting panel lives in a
+    ///   window the size of itself, so it has to say so.
     public static func frames(layout: NotchLayout, expanded: Bool, ringCount: Int,
-                              popover: (index: Int, windowCount: Int)?) -> NotchFrames {
-        let windowSize = NotchMetrics.windowSize(placement: layout.placement,
-                                                 collapsed: layout.collapsed.size,
-                                                 ringCount: ringCount,
-                                                 notchClearance: layout.notchClearance)
+                              popover: (index: Int, windowCount: Int)?,
+                              windowSize explicitWindowSize: CGSize? = nil) -> NotchFrames {
+        let windowSize = explicitWindowSize
+            ?? NotchMetrics.windowSize(placement: layout.placement,
+                                       collapsed: layout.collapsed.size,
+                                       ringCount: ringCount,
+                                       notchClearance: layout.notchClearance)
         let size = expanded
             ? NotchMetrics.expandedSize(placement: layout.placement,
                                         collapsed: layout.collapsed.size, ringCount: ringCount,

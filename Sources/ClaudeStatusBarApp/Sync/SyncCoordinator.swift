@@ -16,6 +16,13 @@ public final class SyncCoordinator {
     // timeout would write .offline over a newer successful fetch.
     private var issued: [UUID: Int] = [:]
     private var applied: [UUID: Int] = [:]
+    /// Machine conditions the poll loop has to respect. Pushed in from the app layer so
+    /// this stays testable — see `EnergyPolicy`.
+    public private(set) var conditions = EnergyConditions()
+
+    /// Whether the poll loop is alive. Exists so a test can prove that a sleeping screen
+    /// really stops it, rather than trusting that it did.
+    public var isRunning: Bool { !tasks.isEmpty }
 
     public init(appState: AppState, engine: AccountSyncEngine, clock: Clock, snapshotStore: SnapshotStore) {
         self.appState = appState; self.engine = engine; self.clock = clock; self.snapshotStore = snapshotStore
@@ -60,21 +67,43 @@ public final class SyncCoordinator {
 
     public func nextDelay(for id: UUID, now: Date) -> TimeInterval {
         guard let a = appState.accounts.first(where: { $0.id == id }) else { return 300 }
-        return SyncScheduler.nextInterval(base: a.effectiveInterval, status: a.status,
-                                          consecutiveRateLimits: counters[id] ?? 0, now: now)
+        return SyncScheduler.nextInterval(
+            base: a.effectiveInterval, status: a.status,
+            consecutiveRateLimits: counters[id] ?? 0, now: now,
+            // An account sitting at 4 % answers the same question for the next half hour;
+            // one at 92 % changes minute to minute. The interval follows the number.
+            utilization: a.lastSnapshot?.maxUtilization,
+            energyMultiplier: EnergyPolicy.syncMultiplier(conditions))
+    }
+
+    /// Applies new machine conditions. Only a change that crosses the paused boundary
+    /// touches the loop — everything else is picked up by the next `nextDelay`.
+    public func updateConditions(_ new: EnergyConditions) {
+        guard new != conditions else { return }
+        let wasPaused = EnergyPolicy.syncPaused(conditions)
+        conditions = new
+        let isPaused = EnergyPolicy.syncPaused(new)
+        guard isPaused != wasPaused else { return }
+        // `start()` syncs before it sleeps, so waking is a fetch, not just a rearmed timer.
+        isPaused ? stop() : start()
     }
 
     public func start() {
         stop()
+        // Nothing to poll for while the screen is off; the wake will start this again.
+        guard !EnergyPolicy.syncPaused(conditions) else { return }
         for (index, account) in appState.accounts.enumerated() {
             let id = account.id
             let stagger = SyncScheduler.staggerOffset(index: index, spacing: 5)
             tasks[id] = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(stagger * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(stagger), tolerance: .seconds(1))
                 while !Task.isCancelled {
                     await self?.syncNow(id)
                     let delay = self?.nextDelay(for: id, now: self?.clock.now() ?? Date()) ?? 300
-                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    // A tolerance lets macOS fire this alongside whatever else is already
+                    // waking the CPU instead of on its own. Apple asks for at least 10 %.
+                    try? await Task.sleep(for: .seconds(delay),
+                                          tolerance: .seconds(max(delay * 0.1, 1)))
                 }
             }
         }

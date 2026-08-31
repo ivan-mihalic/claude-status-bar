@@ -14,12 +14,17 @@ public struct NotchRootView: View {
     let expanded: Bool
     /// Index of the ring whose popover is open, if any.
     let popoverIndex: Int?
+    /// Size of the window this is drawn into. The window is only as big as what is in it —
+    /// resting panel or open panel plus popover — so the layout has to be told which.
+    let windowSize: CGSize
     let onOpenDashboard: () -> Void
 
     public init(env: AppEnvironment, layout: NotchLayout, expanded: Bool,
-                popoverIndex: Int?, onOpenDashboard: @escaping () -> Void) {
+                popoverIndex: Int?, windowSize: CGSize,
+                onOpenDashboard: @escaping () -> Void) {
         self.env = env; self.layout = layout; self.expanded = expanded
         self.popoverIndex = popoverIndex
+        self.windowSize = windowSize
         self.onOpenDashboard = onOpenDashboard
     }
 
@@ -115,67 +120,71 @@ public struct NotchRootView: View {
     private var showsRingsAtRest: Bool { layout.showsRingsAtRest }
 
     public var body: some View {
-        // 60s cadence: every relative time in the popover is minute-granular.
-        TimelineView(.periodic(from: .now, by: 60)) { ctx in
-            let models = rings
-            let open = popoverIndex.flatMap { $0 < models.count ? $0 : nil }
-            let frames = NotchGeometry.frames(
-                layout: layout, expanded: expanded, ringCount: models.count,
-                popover: open.map { (index: $0, windowCount: max(models[$0].windows.count, 1)) })
+        let models = rings
+        let open = popoverIndex.flatMap { $0 < models.count ? $0 : nil }
+        let frames = NotchGeometry.frames(
+            layout: layout, expanded: expanded, ringCount: models.count,
+            popover: open.map { (index: $0, windowCount: max(models[$0].windows.count, 1)) },
+            windowSize: windowSize)
 
-            ZStack(alignment: .topLeading) {
-                Color.clear
+        ZStack(alignment: .topLeading) {
+            Color.clear
 
-                NotchShape(flushEdge: layout.placement.flushEdge)
-                    .fill(.black)
-                    .frame(width: frames.shape.width, height: frames.shape.height)
-                    // The container carries its own timing: opening it leads, closing it
-                    // trails. See NotchAnimation.
-                    .animation(NotchAnimation.container(expanded: expanded), value: expanded)
-                    // Top-aligned for a row under the notch: `.overlay` centres by default,
-                    // so a top padding was being split either side of the content — extra
-                    // space above the rings, too little below, and hit-testing that no longer
-                    // matched where they were drawn.
-                    .overlay(alignment: layout.placement.ringsAreVertical ? .center : .top) {
-                        // Always mounted, never conditionally inserted: a view that appears
-                        // already visible has nothing to fade from, which is why the rings
-                        // used to pop in ahead of the panel they live in.
-                        ringStack(expanded: ringsOpen)
-                            // Content clears a real cutout; on any other screen it is
-                            // ordinary padding, so nothing is pushed down for a hole
-                            // that isn't there.
-                            .padding(.top, layout.placement.ringsAreVertical
-                                     ? 0 : layout.contentTopOffset(expanded: ringsOpen))
-                            // Fade in place — deliberately no scale or offset. Scaling from
-                            // an anchored edge made the rings and the gear look like they
-                            // were flying in from outside the panel instead of simply
-                            // becoming visible inside it.
-                            .opacity(contentVisible ? 1 : 0)
-                            .allowsHitTesting(contentVisible)
-                            // Its own animation overrides the container's for this subtree,
-                            // which is the whole point of staging them.
-                            .animation(NotchAnimation.content(expanded: expanded),
-                                       value: expanded)
-                    }
-                    .position(centre(of: frames.shape, in: frames.window))
+            NotchShape(flushEdge: layout.placement.flushEdge)
+                .fill(.black)
+                .frame(width: frames.shape.width, height: frames.shape.height)
+                // The container carries its own timing: opening it leads, closing it
+                // trails. See NotchAnimation.
+                .animation(NotchAnimation.container(expanded: expanded), value: expanded)
+                // Top-aligned for a row under the notch: `.overlay` centres by default,
+                // so a top padding was being split either side of the content — extra
+                // space above the rings, too little below, and hit-testing that no longer
+                // matched where they were drawn.
+                .overlay(alignment: layout.placement.ringsAreVertical ? .center : .top) {
+                    // Always mounted, never conditionally inserted: a view that appears
+                    // already visible has nothing to fade from, which is why the rings
+                    // used to pop in ahead of the panel they live in.
+                    ringStack(expanded: ringsOpen)
+                        // Content clears a real cutout; on any other screen it is
+                        // ordinary padding, so nothing is pushed down for a hole
+                        // that isn't there.
+                        .padding(.top, layout.placement.ringsAreVertical
+                                 ? 0 : layout.contentTopOffset(expanded: ringsOpen))
+                        // Fade in place — deliberately no scale or offset. Scaling from
+                        // an anchored edge made the rings and the gear look like they
+                        // were flying in from outside the panel instead of simply
+                        // becoming visible inside it.
+                        .opacity(contentVisible ? 1 : 0)
+                        .allowsHitTesting(contentVisible)
+                        // Its own animation overrides the container's for this subtree,
+                        // which is the whole point of staging them.
+                        .animation(NotchAnimation.content(expanded: expanded),
+                                   value: expanded)
+                }
+                .position(centre(of: frames.shape, in: frames.window))
 
-                if let rect = frames.popover, let index = open {
+            if let rect = frames.popover, let index = open {
+                // The 60s tick lives here and nowhere else. The relative times it feeds
+                // ("2 min ago", "resets in 41 min") exist only on this card, and wrapping
+                // the whole panel in it redrew an always-on-screen window once a minute
+                // for nothing.
+                TimelineView(.periodic(from: .now, by: 60)) { ctx in
                     NotchPopoverView(model: models[index], now: ctx.date,
                                      onRefreshNow: { [id = models[index].id] in
                                          await env.syncCoordinator.syncNow(id)
                                      })
-                        .frame(width: rect.width, height: rect.height)
-                        .position(centre(of: rect, in: frames.window))
-                        // Unrolls out of the panel like a dropdown: it scales from the edge
-                        // it is attached to, so it reads as coming *from* the ring rather
-                        // than fading in on top of the desktop.
-                        .transition(.scale(scale: 0.86, anchor: popoverAnchor)
-                            .combined(with: .opacity)
-                            .combined(with: .offset(popoverEntryOffset)))
                 }
+                .frame(width: rect.width, height: rect.height)
+                .position(centre(of: rect, in: frames.window))
+                // Unrolls out of the panel like a dropdown: it scales from the edge
+                // it is attached to, so it reads as coming *from* the ring rather
+                // than fading in on top of the desktop.
+                .transition(.scale(scale: 0.86, anchor: popoverAnchor)
+                    .combined(with: .opacity)
+                    .combined(with: .offset(popoverEntryOffset)))
             }
-            .frame(width: frames.window.width, height: frames.window.height, alignment: .topLeading)
-            .animation(.spring(response: 0.26, dampingFraction: 0.82), value: open)
         }
+        .frame(width: frames.window.width, height: frames.window.height, alignment: .topLeading)
+        .animation(.spring(response: 0.26, dampingFraction: 0.82), value: open)
     }
 }

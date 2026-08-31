@@ -22,8 +22,11 @@ public enum NotchPointerState: Equatable, Sendable {
 /// in this feature: *does the panel want this click?* A window whose `hitTest` returns `nil`
 /// still swallows the event — hit-testing only chooses a view inside the window, it does not
 /// pass anything to the window below. The only way a floating panel lets a click through is
-/// `ignoresMouseEvents`, and that is a whole-window switch that has to be flipped from the
-/// pointer position, every time it moves.
+/// `ignoresMouseEvents`, which is a whole-window switch.
+///
+/// The resting window is now exactly the drawn panel, so at rest there is no transparent
+/// margin to give away and the switch stays off. It is turned on only while the open panel is
+/// closing, because that window *is* bigger than what it draws. See `NotchWindowController`.
 public enum NotchInteraction {
     public static func state(pointInWindow point: CGPoint?, layout: NotchLayout,
                              frames: NotchFrames, ringCount: Int) -> NotchPointerState {

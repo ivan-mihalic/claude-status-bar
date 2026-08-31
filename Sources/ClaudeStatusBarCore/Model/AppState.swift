@@ -42,10 +42,13 @@ import Observation
 
     /// Highest utilization across every window of every account (0...100).
     public var maxUtilization: Double? {
-        let all = accounts.compactMap(\.lastSnapshot).flatMap { snap -> [Double] in
-            [snap.session.utilization, snap.weekAll.utilization]
-                + snap.weekPremium.map(\.utilization)
+        // Read on every menu-bar label rebuild; `UsageSnapshot.maxUtilization` answers it
+        // without building an array per account.
+        var worst: Double?
+        for account in accounts {
+            guard let snapshot = account.lastSnapshot else { continue }
+            worst = max(worst ?? -.infinity, snapshot.maxUtilization)
         }
-        return all.max()
+        return worst
     }
 }

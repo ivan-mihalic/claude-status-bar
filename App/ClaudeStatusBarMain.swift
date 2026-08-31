@@ -54,6 +54,12 @@ struct ClaudeStatusBarMain: App {
                                     display: NotchDisplay(rawValue: notchDisplay) ?? .mainDisplay)
             controller.setBehaviour(expandOnHover: notchExpandOnHover,
                                     showPopover: notchShowPopover)
+            // A sleeping screen takes the panel off the compositor entirely. Routed through
+            // the environment because the sync loop reacts to the same conditions.
+            env.onEnergyConditionsChanged = { [weak controller] conditions in
+                controller?.setScreensAsleep(conditions.screenAsleep)
+            }
+            controller.setScreensAsleep(env.energyMonitor.conditions.screenAsleep)
             controller.setEnabled(on)
         }
         .onChange(of: notchExpandOnHover) { _, _ in

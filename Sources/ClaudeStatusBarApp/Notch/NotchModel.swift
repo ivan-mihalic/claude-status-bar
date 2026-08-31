@@ -52,7 +52,7 @@ public enum NotchModel {
             ([s.weekAll.utilization] + s.weekPremium.map(\.utilization)).max() ?? 0
         }
         let session = snap?.session.utilization
-        let worst = snap.map { $0.allWindows.map(\.utilization).max() ?? 0 }
+        let worst = snap.map(\.maxUtilization)
         let prefix = account.menuBarPrefix?.trimmingCharacters(in: .whitespaces)
 
         return RingModel(id: account.id,

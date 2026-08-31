@@ -42,3 +42,41 @@ import Foundation
     try store.save([acct])
     #expect(try store.load() == [acct])
 }
+
+// Každý sync dosud přepsal celý soubor, i když se v něm nic nezměnilo. Zápis je
+// atomický (write + rename), takže to není zadarmo — a při intervalu 5 minut na
+// účet to je zápis na disk každých pár desítek sekund za nic.
+@Test func save_skipsTheWriteWhenNothingChanged() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("csb-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = SnapshotStore(fileURL: tmp)
+
+    let acct = Account(id: UUID(), label: "a", accountUuid: "u",
+                       syncInterval: 300, status: .ok, lastSnapshot: nil, lastSyncedAt: nil)
+
+    #expect(try store.save([acct]) == true)     // první zápis proběhne
+    #expect(try store.save([acct]) == false)    // druhý identický už ne
+    #expect(try store.save([acct]) == false)
+
+    var changed = acct
+    changed.label = "b"
+    #expect(try store.save([changed]) == true)  // změna zapsat musí
+    #expect(try store.load() == [changed])      // a musí být na disku
+}
+
+// Přeskakování se nesmí opřít o paměť procesu tam, kde soubor mezitím zmizel —
+// jinak by se stav po ručním smazání nikdy neobnovil.
+@Test func save_writesAgainWhenTheFileDisappeared() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("csb-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = SnapshotStore(fileURL: tmp)
+
+    let acct = Account(id: UUID(), label: "a", accountUuid: "u",
+                       syncInterval: 300, status: .ok, lastSnapshot: nil, lastSyncedAt: nil)
+    #expect(try store.save([acct]) == true)
+    try FileManager.default.removeItem(at: tmp)
+    #expect(try store.save([acct]) == true)
+    #expect(try store.load() == [acct])
+}
