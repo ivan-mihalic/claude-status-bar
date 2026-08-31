@@ -55,7 +55,7 @@ struct RootView: View {
         case .dashboard: DashboardView(env: env)
         case .addAccount: centered { AddAccountView(env: env) }
         case .notch:      centered { NotchSettingsView(env: env) }
-        case .settings:   centered { SettingsView(env: env) }
+        case .settings:   centered { SettingsView() }
         case .about:      centered { AboutView(updater: updater) }
         }
     }

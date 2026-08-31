@@ -86,8 +86,9 @@ open**, and every action lives in it (you never need the popover for anything):
 - **Settings** — default sync interval, **Launch at login**, **Show icon in Dock** (off by
   default; the app lives in the menu bar), and **Show each account's percentages in the menu bar**
   (uses the per-account "Menu label" prefixes to tell accounts apart, e.g. `W 20/19/5  P 30/40`),
-  with a per-account switch to keep individual accounts **out of the menu-bar label** when it
-  gets too long — a hidden account keeps syncing and still turns the gauge icon orange or red.
+  and each Dashboard tile has an **In menu bar** switch to keep that account out of the label
+  when it gets too long — a hidden account keeps syncing and still turns the gauge icon orange
+  or red.
 - **About** — the app icon, version, a link to this repo, and **Check for Updates…**.
 
 ### Notch panel (optional, off by default)

@@ -2,12 +2,11 @@
 import SwiftUI
 
 public struct SettingsView: View {
-    @Bindable var env: AppEnvironment
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @AppStorage("showDockIcon") private var showDockIcon = false
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
-    public init(env: AppEnvironment) { self.env = env }
+    public init() {}
 
     public var body: some View {
         Form {
@@ -22,7 +21,8 @@ public struct SettingsView: View {
                     DockController.shared.setShowDock(on)
                 }
             Toggle("Show each account's percentages in the menu bar", isOn: $showAccountPercents)
-            Text("The notch panel has its own screen in the sidebar.")
+            Text("Each Dashboard tile carries an \"In menu bar\" switch, so a long label can be "
+                 + "trimmed account by account. The notch panel has its own screen in the sidebar.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(20).frame(width: 360)

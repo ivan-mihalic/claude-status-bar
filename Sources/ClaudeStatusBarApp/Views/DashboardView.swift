@@ -56,11 +56,13 @@ public struct DashboardView: View {
     }
 }
 
-/// Editable account name + menu-bar prefix. Uses local @State so typing stays smooth
-/// (no cursor jumps) and commits live to the manager as the value changes.
+/// Editable account name, menu-bar prefix and whether this account appears in the menu bar
+/// at all. Uses local @State for the text so typing stays smooth (no cursor jumps) and
+/// commits live to the manager as the value changes.
 private struct AccountEditFields: View {
     let account: Account
     let manager: AccountManager
+    @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @State private var name: String
     @State private var prefix: String
 
@@ -81,6 +83,18 @@ private struct AccountEditFields: View {
             TextField("prefix", text: $prefix)
                 .textFieldStyle(.roundedBorder).font(.caption).frame(width: 90)
                 .onChange(of: prefix) { _, new in manager.setPrefix(account.id, new) }
+            Toggle("In menu bar", isOn: Binding(
+                get: { account.isShownInMenuBar },
+                set: { manager.setShownInMenuBar(account.id, $0) }))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.caption)
+                .help(showAccountPercents
+                      ? "Show this account's percentages next to the menu-bar icon. It keeps "
+                        + "syncing either way, and still turns the icon orange or red."
+                      : "Turn on Settings → \"Show each account's percentages in the menu bar\" "
+                        + "for this to have any effect: right now the menu bar shows a single "
+                        + "overall number.")
         }
     }
 }
