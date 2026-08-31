@@ -11,8 +11,15 @@ import ClaudeStatusBarCore
 public struct NotchPopoverView: View {
     let model: RingModel
     let now: Date
+    /// Fetches this account's numbers right now. Ad-hoc on purpose: it does not wait for the
+    /// poll interval and does not reschedule it — the timer loop sleeps on its own clock, so
+    /// pressing this neither delays nor advances the next automatic sync.
+    let onRefreshNow: () async -> Void
+    @State private var refreshing = false
 
-    public init(model: RingModel, now: Date) { self.model = model; self.now = now }
+    public init(model: RingModel, now: Date, onRefreshNow: @escaping () async -> Void = {}) {
+        self.model = model; self.now = now; self.onRefreshNow = onRefreshNow
+    }
 
     private func tint(_ u: Double) -> Color {
         switch MenuBarIndicator.level(maxUtilization: u) {
@@ -64,6 +71,31 @@ public struct NotchPopoverView: View {
 
             if let statusNote {
                 Text(statusNote).font(.caption2).foregroundStyle(.orange)
+            }
+
+            HStack(spacing: 6) {
+                Text("Last sync").font(.caption2).foregroundStyle(.white.opacity(0.55))
+                Text(Format.lastSync(model.lastSyncedAt, now: now))
+                    .font(.caption2.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                Button {
+                    guard !refreshing else { return }
+                    refreshing = true
+                    Task { await onRefreshNow(); refreshing = false }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(.white.opacity(0.14)))
+                        .rotationEffect(.degrees(refreshing ? 360 : 0))
+                        .animation(refreshing
+                                   ? .linear(duration: 0.9).repeatForever(autoreverses: false)
+                                   : .default, value: refreshing)
+                }
+                .buttonStyle(.plain)
+                .disabled(refreshing)
+                .help("Sync this account now. Does not change when the next automatic sync happens.")
+                Spacer()
             }
 
             if model.windows.isEmpty {

@@ -38,3 +38,14 @@ import CoreGraphics
     #expect(NotchMetrics.popoverHeight(windowCount: 0) == NotchMetrics.popoverHeight(windowCount: 1))
     #expect(NotchMetrics.maxPopoverHeight == NotchMetrics.popoverHeight(windowCount: 4))
 }
+
+@Test func popover_leavesRoomForTheLastSyncRow() {
+    // The card carries a title, a "Last sync … ⟳" line and one row per window. Sized for
+    // fewer, the bottom row is clipped — and clipping looks like a rendering bug, not a
+    // layout constant that was never updated.
+    let oneWindow = NotchMetrics.popoverHeight(windowCount: 1)
+    let twoWindows = NotchMetrics.popoverHeight(windowCount: 2)
+    let rowHeight = twoWindows - oneWindow
+    // Title + sync row + padding, over and above the single window row.
+    #expect(oneWindow - rowHeight >= 30 + 30 + 2 * 14)
+}

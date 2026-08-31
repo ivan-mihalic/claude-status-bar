@@ -131,7 +131,10 @@ public struct NotchRootView: View {
                     .position(centre(of: frames.shape, in: frames.window))
 
                 if let rect = frames.popover, let index = open {
-                    NotchPopoverView(model: models[index], now: ctx.date)
+                    NotchPopoverView(model: models[index], now: ctx.date,
+                                     onRefreshNow: { [id = models[index].id] in
+                                         await env.syncCoordinator.syncNow(id)
+                                     })
                         .frame(width: rect.width, height: rect.height)
                         .position(centre(of: rect, in: frames.window))
                         // Unrolls out of the panel like a dropdown: it scales from the edge

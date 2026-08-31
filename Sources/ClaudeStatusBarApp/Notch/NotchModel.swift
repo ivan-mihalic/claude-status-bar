@@ -23,14 +23,17 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     /// Drawn as a small mark on the ring's shoulder, so a panel mixing services still says
     /// which number belongs to which.
     public let provider: Provider
+    /// When this account last synced successfully enough to update its numbers. `nil` = never.
+    public let lastSyncedAt: Date?
 
     public init(id: UUID, label: String, prefix: String?, weekPercent: Double?,
                 sessionPercent: Double?, level: IndicatorLevel, badge: RingBadge?,
-                windows: [UsageWindow], provider: Provider = .claude) {
+                windows: [UsageWindow], provider: Provider = .claude,
+                lastSyncedAt: Date? = nil) {
         self.id = id; self.label = label; self.prefix = prefix
         self.weekPercent = weekPercent; self.sessionPercent = sessionPercent
         self.level = level; self.badge = badge; self.windows = windows
-        self.provider = provider
+        self.provider = provider; self.lastSyncedAt = lastSyncedAt
     }
 }
 
@@ -60,7 +63,8 @@ public enum NotchModel {
                          level: MenuBarIndicator.level(maxUtilization: worst),
                          badge: badge(for: account.status),
                          windows: snap?.allWindows ?? [],
-                         provider: account.effectiveProvider)
+                         provider: account.effectiveProvider,
+                         lastSyncedAt: account.lastSyncedAt)
     }
 
     /// Exhaustive on purpose: a status added later breaks the build here rather than

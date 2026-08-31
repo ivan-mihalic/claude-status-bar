@@ -42,11 +42,14 @@ public enum NotchMetrics {
     public static let popoverWidth: CGFloat = 300
     public static let popoverGap: CGFloat = 8
     private static let popoverTitleHeight: CGFloat = 30
+    /// The "Last sync … ⟳" line under the title.
+    private static let popoverSyncRowHeight: CGFloat = 30
     private static let popoverRowHeight: CGFloat = 52
     private static let popoverPadding: CGFloat = 14
 
     public static func popoverHeight(windowCount: Int) -> CGFloat {
-        popoverTitleHeight + CGFloat(max(windowCount, 1)) * popoverRowHeight + 2 * popoverPadding
+        popoverTitleHeight + popoverSyncRowHeight
+            + CGFloat(max(windowCount, 1)) * popoverRowHeight + 2 * popoverPadding
     }
 
     /// Tallest popover we will ever draw: session + weekly + two premium windows.

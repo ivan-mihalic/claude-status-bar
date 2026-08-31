@@ -34,6 +34,27 @@ public enum Format {
         return "resets in " + parts.joined(separator: " ")
     }
 
+    /// Default zone for absolute stamps in the notch panel.
+    public static let displayTimeZone = TimeZone(identifier: "Europe/Prague") ?? .current
+
+    /// When an account last synced, for the notch popover.
+    ///
+    /// An age is readable for about a day; past that "27h ago" stops meaning anything and a
+    /// date does the job better. The zone is a parameter rather than `.current` so the stamp
+    /// keeps meaning the same thing on a laptop that has travelled.
+    public static func lastSync(_ date: Date?, now: Date,
+                                timeZone: TimeZone = displayTimeZone) -> String {
+        guard let date else { return "Never" }
+        // A snapshot restored after a clock change can sit in the future; "-3h ago" reads
+        // as a bug, so anything not in the past is simply "just now".
+        let secs = Int(now.timeIntervalSince(date))
+        if secs < 5 { return "just now" }
+        if secs < 60 { return "\(secs)s ago" }
+        if secs < 3600 { return "\(secs / 60) min ago" }
+        if secs < 86_400 { return "\(secs / 3600)h ago" }
+        return absoluteReset(date, timeZone: timeZone)
+    }
+
     /// Absolute reset moment, e.g. "Thu 23.7. 00:59" (day-of-week + date + time), in the
     /// given locale/time zone (defaults to the user's system settings).
     public static func absoluteReset(_ date: Date, locale: Locale = .current,
