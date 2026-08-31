@@ -50,11 +50,33 @@ public struct OAuthClient: Sendable {
                     return tr.bundle(now: clock.now(), previousRefreshToken: previousRefreshToken)
                 } catch { throw OAuthError.decoding }
             case 400:
-                throw OAuthError.invalidGrant   // don't retry other host on bad grant
+                // RFC 6749 §5.2 puts `invalid_request`, `invalid_client` and
+                // `unsupported_grant_type` on the same 400 as `invalid_grant`. Only the
+                // last one means the grant itself is gone; reading every 400 as a dead
+                // grant signs the user out over a refusal they could have waited out.
+                if Self.errorCode(resp.body) == "invalid_grant" {
+                    throw OAuthError.invalidGrant   // don't retry other host on bad grant
+                }
+                lastError = .http(400)
             default:
                 lastError = .http(resp.status)   // try next host
             }
         }
         throw lastError
+    }
+
+    /// The `error` field of an OAuth error response, or nil when the body carries none.
+    /// A body we can't read is deliberately *not* treated as a dead grant.
+    static func errorCode(_ body: Data) -> String? {
+        struct ErrorBody: Decodable { let error: String? }
+        if let code = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error {
+            return code
+        }
+        // Some gateways wrap the OAuth error; a body that names invalid_grant at all is
+        // still a dead grant. An empty or unreadable body names nothing and is retried.
+        if let text = String(data: body, encoding: .utf8), text.contains("invalid_grant") {
+            return "invalid_grant"
+        }
+        return nil
     }
 }

@@ -72,3 +72,41 @@ private func coord(_ http: MockHTTPClient, _ state: AppState, _ store: TokenStor
     let c = coord(MockHTTPClient(), state, InMemoryTokenStore(), clock, URL(fileURLWithPath: "/dev/null"))
     #expect(c.nextDelay(for: id, now: clock.now()) == 200)
 }
+
+@MainActor
+@Test func syncNow_selfInflictedFailure_isSurfacedNotJustShownAsOffline() async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(TokenBundle(accessToken: "OLD", refreshToken: "RT",
+                               expiresAt: .init(timeIntervalSince1970: 100),
+                               scopes: []), for: id)
+    let http = MockHTTPClient { _ in
+        HTTPResponse(status: 200, headers: [:], body: Data(
+            #"{"access_token":"AT2","refresh_token":"RT2","expires_in":28800,"scope":""}"#.utf8))
+    }
+    // A store that refuses writes: the refresh succeeds, the rotation can't be kept.
+    struct Unwritable: TokenStore {
+        let inner: InMemoryTokenStore
+        func save(_ bundle: TokenBundle, for id: UUID) throws { throw KeychainError.status(-25308) }
+        func load(_ id: UUID) throws -> TokenBundle? { try inner.load(id) }
+        func delete(_ id: UUID) throws { try inner.delete(id) }
+    }
+    let state = AppState()
+    state.upsert(Account(id: id, label: "Work", accountUuid: nil,
+                         syncInterval: 300, status: .ok,
+                         lastSnapshot: nil, lastSyncedAt: nil))
+    let engine = AccountSyncEngine(
+        tokenStore: Unwritable(inner: store),
+        oauth: OAuthClient(http: http, endpoints: .production, config: .claudeCode, clock: clock),
+        usage: UsageAPIClient(http: http, userAgent: "ua"), clock: clock)
+    let coordinator = SyncCoordinator(appState: state, engine: engine, clock: clock,
+                                      snapshotStore: SnapshotStore(fileURL: tmp))
+    await coordinator.syncNow(id)
+
+    let message = try #require(state.lastError)
+    #expect(message.contains("Work"))
+}

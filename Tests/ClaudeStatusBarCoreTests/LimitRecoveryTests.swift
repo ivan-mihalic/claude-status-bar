@@ -127,7 +127,10 @@ private func storedToken(_ store: TokenStore, _ id: UUID, expiresAt: TimeInterva
     let store = InMemoryTokenStore()
     let id = UUID()
     try storedToken(store, id, expiresAt: 100)
-    let http = MockHTTPClient { _ in HTTPResponse(status: 400, headers: [:], body: Data()) }
+    let http = MockHTTPClient { _ in
+        HTTPResponse(status: 400, headers: [:],
+                     body: Data(#"{"error":"invalid_grant"}"#.utf8))
+    }
     let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
     #expect(out == .needsReauth)
 }

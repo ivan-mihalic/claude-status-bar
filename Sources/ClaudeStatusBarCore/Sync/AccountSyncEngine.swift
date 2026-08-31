@@ -12,8 +12,7 @@ public enum SyncOutcome: Equatable {
 }
 
 public struct AccountSyncEngine {
-    private let tokenStore: TokenStore
-    private let oauth: OAuthClient
+    private let tokens: TokenRefreshCoordinator
     private let usage: UsageAPIClient
     private let clock: Clock
     private let refreshWindow: TimeInterval
@@ -21,21 +20,28 @@ public struct AccountSyncEngine {
     public init(tokenStore: TokenStore, oauth: OAuthClient,
                 usage: UsageAPIClient, clock: Clock,
                 refreshWindow: TimeInterval = 300) {
-        self.tokenStore = tokenStore; self.oauth = oauth
-        self.usage = usage; self.clock = clock; self.refreshWindow = refreshWindow
+        self.init(tokens: TokenRefreshCoordinator(oauth: oauth, store: tokenStore),
+                  usage: usage, clock: clock, refreshWindow: refreshWindow)
+    }
+
+    public init(tokens: TokenRefreshCoordinator, usage: UsageAPIClient,
+                clock: Clock, refreshWindow: TimeInterval = 300) {
+        self.tokens = tokens; self.usage = usage
+        self.clock = clock; self.refreshWindow = refreshWindow
     }
 
     public func syncOnce(accountID: UUID) async -> SyncOutcome {
-        guard let bundle0 = try? tokenStore.load(accountID) else {
+        guard let bundle0 = await tokens.current(accountID) else {
             return .needsReauth
         }
         // Proactive refresh if near expiry.
         var bundle = bundle0
         if bundle.isExpiring(within: refreshWindow, now: clock.now()) {
             switch await refresh(bundle, for: accountID) {
-            case .refreshed(let r): bundle = r
-            case .rejected:         return .needsReauth
-            case .unreachable:      return .offline
+            case .refreshed(let r):     bundle = r
+            case .rejected:             return .needsReauth
+            case .unreachable:          return .offline
+            case .storeFailed(let why): return .failed(why)
             }
         }
         // Fetch usage; on 401 — and only on 401 — try exactly one reactive refresh.
@@ -58,8 +64,9 @@ public struct AccountSyncEngine {
                         // running out of quota shows up as "sign in again".
                         return outcome(for: retryError, fallback: .needsReauth)
                     }
-                case .rejected:    return .needsReauth
-                case .unreachable: return .offline
+                case .rejected:             return .needsReauth
+                case .unreachable:          return .offline
+                case .storeFailed(let why): return .failed(why)
                 }
             }
             return outcome(for: e, fallback: .offline)
@@ -89,15 +96,18 @@ public struct AccountSyncEngine {
         /// Couldn't reach the token host, or it failed transiently. The stored grant is
         /// probably fine, so this must not burn the account's sign-in state.
         case unreachable
+        /// Refreshed, but the rotated token couldn't be stored. Reported rather than
+        /// swallowed: a lost rotation shows up days later as an unexplained sign-out.
+        case storeFailed(String)
     }
 
     private func refresh(_ bundle: TokenBundle, for id: UUID) async -> RefreshResult {
         do {
-            let refreshed = try await oauth.refresh(bundle)
-            try? tokenStore.save(refreshed, for: id)
-            return .refreshed(refreshed)
-        } catch OAuthError.invalidGrant {
+            return .refreshed(try await tokens.refresh(bundle, for: id))
+        } catch TokenRefreshCoordinator.Failure.rejected {
             return .rejected
+        } catch TokenRefreshCoordinator.Failure.storeFailed(let why) {
+            return .storeFailed(why)
         } catch {
             return .unreachable
         }

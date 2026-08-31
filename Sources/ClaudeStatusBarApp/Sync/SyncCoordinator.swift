@@ -44,6 +44,12 @@ public final class SyncCoordinator {
             SyncState(account: account, consecutiveRateLimits: counters[id] ?? 0),
             outcome: outcome, now: clock.now())
         counters[id] = reduced.consecutiveRateLimits
+        // A tile reading "offline" hides why. A failure the app caused itself — a token
+        // it refreshed but couldn't store — has to be visible, because it is what turns
+        // into an unexplained sign-out a few days later.
+        if case .failed(let why) = outcome {
+            appState.report("\(account.label): \(why)")
+        }
         appState.upsert(reduced.account)
         do { try snapshotStore.save(appState.accounts) }
         catch { appState.report("Couldn't save accounts: \(error)") }
