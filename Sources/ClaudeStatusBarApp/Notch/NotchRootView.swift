@@ -52,6 +52,9 @@ public struct NotchRootView: View {
         }
         .buttonStyle(.plain)
         .help("Open Dashboard")
+        // On an edge the rings are already on show and only the gear arrives, so it is a real
+        // insertion — give it a fade, or it snaps in while the panel is still growing.
+        .transition(.opacity)
 
         let spacing = NotchMetrics.ringSpacing(expanded: expanded)
         if layout.placement.ringsAreVertical {
@@ -83,6 +86,11 @@ public struct NotchRootView: View {
 
     /// Rings and gear are only fully shown once the panel is open — or, on an edge, always.
     private var contentVisible: Bool { expanded || showsRingsAtRest }
+
+    /// Size the rings are laid out at, which is not the same question as whether they show.
+    private var ringsOpen: Bool {
+        NotchAnimation.ringsUseOpenSize(showsRingsAtRest: showsRingsAtRest, expanded: expanded)
+    }
 
     /// The corner the popover unrolls from — always the side facing the panel.
     private var popoverAnchor: UnitPoint {
@@ -125,23 +133,25 @@ public struct NotchRootView: View {
                     // trails. See NotchAnimation.
                     .animation(NotchAnimation.container(expanded: expanded), value: expanded)
                     .overlay {
-                        if expanded || showsRingsAtRest {
-                            ringStack(expanded: expanded)
-                                // Content clears a real cutout; on any other screen it is
-                                // ordinary padding, so nothing is pushed down for a hole
-                                // that isn't there.
-                                .padding(.top, layout.placement.ringsAreVertical
-                                         ? 0 : layout.contentTopOffset(expanded: expanded))
-                                // Fade in place — deliberately no scale or offset. Scaling
-                                // from an anchored edge made the rings and the gear look like
-                                // they were flying in from outside the panel instead of
-                                // simply becoming visible inside it.
-                                .opacity(contentVisible ? 1 : 0)
-                                // Its own animation overrides the container's for this
-                                // subtree, which is the whole point of staging them.
-                                .animation(NotchAnimation.content(expanded: expanded),
-                                           value: expanded)
-                        }
+                        // Always mounted, never conditionally inserted: a view that appears
+                        // already visible has nothing to fade from, which is why the rings
+                        // used to pop in ahead of the panel they live in.
+                        ringStack(expanded: ringsOpen)
+                            // Content clears a real cutout; on any other screen it is
+                            // ordinary padding, so nothing is pushed down for a hole
+                            // that isn't there.
+                            .padding(.top, layout.placement.ringsAreVertical
+                                     ? 0 : layout.contentTopOffset(expanded: ringsOpen))
+                            // Fade in place — deliberately no scale or offset. Scaling from
+                            // an anchored edge made the rings and the gear look like they
+                            // were flying in from outside the panel instead of simply
+                            // becoming visible inside it.
+                            .opacity(contentVisible ? 1 : 0)
+                            .allowsHitTesting(contentVisible)
+                            // Its own animation overrides the container's for this subtree,
+                            // which is the whole point of staging them.
+                            .animation(NotchAnimation.content(expanded: expanded),
+                                       value: expanded)
                     }
                     .position(centre(of: frames.shape, in: frames.window))
 

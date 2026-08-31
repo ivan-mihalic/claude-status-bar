@@ -31,6 +31,16 @@ public enum NotchAnimation {
         return expanding ? contentOpen + contentOpenDelay : contentClose + contentCloseDelay
     }
 
+    /// Whether the rings should be laid out at their open size even while invisible.
+    ///
+    /// A panel that hides its rings at rest keeps them mounted at full size and only fades
+    /// them: if they were mounted small and grew, the fade would come with a resize, which is
+    /// the "flying in" look again. A panel that *shows* rings at rest has to follow the real
+    /// state, because there the size change is the animation.
+    public static func ringsUseOpenSize(showsRingsAtRest: Bool, expanded: Bool) -> Bool {
+        showsRingsAtRest ? expanded : true
+    }
+
     public static func container(expanded: Bool) -> Animation {
         expanded ? .spring(response: containerOpen, dampingFraction: 0.84)
                  : .spring(response: containerClose, dampingFraction: 0.88)

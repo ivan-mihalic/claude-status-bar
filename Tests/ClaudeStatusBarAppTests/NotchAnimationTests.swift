@@ -33,3 +33,19 @@ import Testing
         }
     }
 }
+
+// MARK: What is mounted when
+
+// The bug: with rings hidden at rest, the stack was *inserted* into the view tree on expand.
+// A view that appears already visible cannot fade — the rings popped in fully formed while
+// the panel was still growing, which is the opposite of the intended order. Keeping them
+// mounted and animating opacity is what makes the staging apply at all.
+@Test func hiddenAtRest_meansMountedAtOpenSizeAndMerelyInvisible() {
+    #expect(NotchAnimation.ringsUseOpenSize(showsRingsAtRest: false, expanded: false))
+    #expect(NotchAnimation.ringsUseOpenSize(showsRingsAtRest: false, expanded: true))
+}
+
+@Test func shownAtRest_followsTheRealState_becauseThereTheResizeIsTheAnimation() {
+    #expect(NotchAnimation.ringsUseOpenSize(showsRingsAtRest: true, expanded: true))
+    #expect(NotchAnimation.ringsUseOpenSize(showsRingsAtRest: true, expanded: false) == false)
+}
