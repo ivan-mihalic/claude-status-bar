@@ -19,7 +19,7 @@ public struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             AccountRowView(
                                 account: acct, now: ctx.date,
-                                onManualSync: { await env.syncCoordinator.syncNow(acct.id) },
+                                onManualSync: { await env.syncCoordinator.syncNow(acct.id, manual: true) },
                                 reorder: ReorderControls(
                                     canMoveUp: index > 0,
                                     canMoveDown: index < env.appState.accounts.count - 1,

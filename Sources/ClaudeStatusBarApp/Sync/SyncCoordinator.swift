@@ -28,7 +28,10 @@ public final class SyncCoordinator {
         self.appState = appState; self.engine = engine; self.clock = clock; self.snapshotStore = snapshotStore
     }
 
-    public func syncNow(_ id: UUID) async {
+    /// - Parameter manual: whether the user asked for this one. A failure the user asked for
+    ///   has to be said out loud; the same failure from the poll loop is noise, because the
+    ///   loop keeps trying on its own and nobody is waiting for it.
+    public func syncNow(_ id: UUID, manual: Bool = false) async {
         guard appState.accounts.contains(where: { $0.id == id }) else { return }
         // Claim the sequence number BEFORE the await, so it records when this request
         // started, not when it happened to come back.
@@ -57,12 +60,30 @@ public final class SyncCoordinator {
         // A tile reading "offline" hides why. A failure the app caused itself — a token
         // it refreshed but couldn't store — has to be visible, because it is what turns
         // into an unexplained sign-out a few days later.
-        if case .failed(let why) = outcome {
+        switch outcome {
+        case .failed(let why):
             appState.report("\(account.label): \(why)")
+        case .success:
+            break
+        case .offline, .needsReauth, .rateLimited:
+            // Only when the user asked. The same failure from the poll loop is noise: the
+            // loop retries on its own and nobody is waiting for it.
+            if manual { appState.report("\(account.label): \(Self.reason(for: outcome))") }
         }
         appState.upsert(reduced.account)
         do { try snapshotStore.save(appState.accounts) }
         catch { appState.report("Couldn't save accounts: \(error)") }
+    }
+
+    /// Plain-language reason for a sync that did not bring numbers back.
+    private static func reason(for outcome: SyncOutcome) -> String {
+        switch outcome {
+        case .success:      return "synced"
+        case .offline:      return "couldn't reach the server"
+        case .needsReauth:  return "sign in again"
+        case .rateLimited:  return "rate limited — will retry on its own"
+        case .failed(let why): return why
+        }
     }
 
     public func nextDelay(for id: UUID, now: Date) -> TimeInterval {

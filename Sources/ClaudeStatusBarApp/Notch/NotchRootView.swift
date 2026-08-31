@@ -171,7 +171,7 @@ public struct NotchRootView: View {
                 TimelineView(.periodic(from: .now, by: 60)) { ctx in
                     NotchPopoverView(model: models[index], now: ctx.date,
                                      onRefreshNow: { [id = models[index].id] in
-                                         await env.syncCoordinator.syncNow(id)
+                                         await env.syncCoordinator.syncNow(id, manual: true)
                                      })
                 }
                 .frame(width: rect.width, height: rect.height)

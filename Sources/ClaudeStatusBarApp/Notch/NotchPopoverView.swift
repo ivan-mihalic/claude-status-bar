@@ -77,6 +77,12 @@ public struct NotchPopoverView: View {
                 Text("Last sync").font(.caption2).foregroundStyle(.white.opacity(0.55))
                 Text(Format.lastSync(model.lastSyncedAt, now: now))
                     .font(.caption2.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                // The only sign that a failed sync happened at all: nothing else on this
+                // card moves when an unreachable account is refreshed.
+                if model.lastAttemptFailed {
+                    Text("· tried \(Format.lastSync(model.lastAttemptAt, now: now))")
+                        .font(.caption2.monospacedDigit()).foregroundStyle(.orange.opacity(0.9))
+                }
                 Button {
                     guard !refreshing else { return }
                     refreshing = true

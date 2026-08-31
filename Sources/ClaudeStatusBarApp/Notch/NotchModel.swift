@@ -25,15 +25,21 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     public let provider: Provider
     /// When this account last synced successfully enough to update its numbers. `nil` = never.
     public let lastSyncedAt: Date?
+    /// When a sync was last attempted, and whether that attempt came back empty-handed.
+    /// Without this a failed manual sync changes nothing on screen.
+    public let lastAttemptAt: Date?
+    public let lastAttemptFailed: Bool
 
     public init(id: UUID, label: String, prefix: String?, weekPercent: Double?,
                 sessionPercent: Double?, level: IndicatorLevel, badge: RingBadge?,
                 windows: [UsageWindow], provider: Provider = .claude,
-                lastSyncedAt: Date? = nil) {
+                lastSyncedAt: Date? = nil, lastAttemptAt: Date? = nil,
+                lastAttemptFailed: Bool = false) {
         self.id = id; self.label = label; self.prefix = prefix
         self.weekPercent = weekPercent; self.sessionPercent = sessionPercent
         self.level = level; self.badge = badge; self.windows = windows
         self.provider = provider; self.lastSyncedAt = lastSyncedAt
+        self.lastAttemptAt = lastAttemptAt; self.lastAttemptFailed = lastAttemptFailed
     }
 }
 
@@ -64,7 +70,9 @@ public enum NotchModel {
                          badge: badge(for: account.status),
                          windows: snap?.allWindows ?? [],
                          provider: account.effectiveProvider,
-                         lastSyncedAt: account.lastSyncedAt)
+                         lastSyncedAt: account.lastSyncedAt,
+                         lastAttemptAt: account.lastAttemptAt,
+                         lastAttemptFailed: account.lastAttemptFailed)
     }
 
     /// Exhaustive on purpose: a status added later breaks the build here rather than

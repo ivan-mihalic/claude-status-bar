@@ -14,6 +14,10 @@ public enum SyncReducer {
     public static func reduce(_ state: SyncState, outcome: SyncOutcome,
                               now: Date, backoff: Backoff = .usage) -> SyncState {
         var s = state
+        // Stamped for every outcome, before the switch: an attempt that fails leaves no
+        // other trace, and without one a manual sync on an unreachable account changes
+        // nothing the user can see.
+        s.account.lastAttemptAt = now
         switch outcome {
         case .success(let snap):
             s.account.status = .ok

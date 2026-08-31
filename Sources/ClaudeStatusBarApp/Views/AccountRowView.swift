@@ -90,6 +90,12 @@ public struct AccountRowView: View {
                 .buttonStyle(.plain)
                 .disabled(syncing)
                 .help("Click to sync this account now")
+                if account.lastAttemptFailed {
+                    // A failed sync leaves `lastSyncedAt` alone on purpose, so without this
+                    // the button looks like it did nothing at all.
+                    Text("tried \(Format.lastSync(account.lastAttemptAt, now: now)) — no luck")
+                        .font(.caption2).foregroundStyle(.orange)
+                }
             }
         }.padding(.vertical, 4)
     }

@@ -20,6 +20,14 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     public var status: AccountStatus
     public var lastSnapshot: UsageSnapshot?
     public var lastSyncedAt: Date?
+    /// When a sync was last *attempted*, whether or not it worked. Optional for decode
+    /// compatibility with account files written before this existed.
+    ///
+    /// Separate from `lastSyncedAt` because a failed sync must not look like a successful
+    /// one — and without it a failed sync leaves no trace at all, so pressing "sync now" on
+    /// an account that cannot reach the server changes nothing on screen and the button
+    /// reads as broken.
+    public var lastAttemptAt: Date?
     /// Optional short label shown before this account's percentages in the menu bar.
     /// Optional so old persisted snapshots (without this key) still decode.
     public var menuBarPrefix: String?
@@ -39,10 +47,12 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
                 syncInterval: Int, status: AccountStatus,
                 lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?,
                 menuBarPrefix: String? = nil, showInNotch: Bool? = nil,
-                showInMenuBar: Bool? = nil, provider: Provider? = nil) {
+                showInMenuBar: Bool? = nil, provider: Provider? = nil,
+                lastAttemptAt: Date? = nil) {
         self.id = id; self.label = label; self.accountUuid = accountUuid
         self.syncInterval = syncInterval; self.status = status
         self.lastSnapshot = lastSnapshot; self.lastSyncedAt = lastSyncedAt
+        self.lastAttemptAt = lastAttemptAt
         self.menuBarPrefix = menuBarPrefix
         self.showInNotch = showInNotch
         self.showInMenuBar = showInMenuBar
@@ -58,4 +68,12 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     public var isShownInMenuBar: Bool { showInMenuBar ?? true }
 
     public var effectiveProvider: Provider { provider ?? .claude }
+
+    /// Whether the most recent attempt failed to bring back numbers. False for an account
+    /// that has never tried — there is nothing to report yet.
+    public var lastAttemptFailed: Bool {
+        guard let attempt = lastAttemptAt else { return false }
+        guard let synced = lastSyncedAt else { return true }
+        return attempt > synced
+    }
 }
