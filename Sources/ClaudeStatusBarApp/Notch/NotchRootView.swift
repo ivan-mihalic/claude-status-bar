@@ -81,6 +81,25 @@ public struct NotchRootView: View {
         }
     }
 
+    /// The corner the popover unrolls from — always the side facing the panel.
+    private var popoverAnchor: UnitPoint {
+        switch layout.placement.popoverSide {
+        case .below:    return .top
+        case .trailing: return .leading
+        case .leading:  return .trailing
+        }
+    }
+
+    /// A short slide in the direction it opens, so the motion has a direction and not just
+    /// a size change.
+    private var popoverEntryOffset: CGSize {
+        switch layout.placement.popoverSide {
+        case .below:    return CGSize(width: 0, height: -14)
+        case .trailing: return CGSize(width: -14, height: 0)
+        case .leading:  return CGSize(width: 14, height: 0)
+        }
+    }
+
     /// At rest the top placement shows nothing (it is hiding in the notch); an edge panel
     /// shows its rings.
     private var showsRingsAtRest: Bool { layout.placement.isEdge }
@@ -113,12 +132,17 @@ public struct NotchRootView: View {
                     NotchPopoverView(model: models[index], now: ctx.date)
                         .frame(width: rect.width, height: rect.height)
                         .position(centre(of: rect, in: frames.window))
-                        .transition(.opacity)
+                        // Unrolls out of the panel like a dropdown: it scales from the edge
+                        // it is attached to, so it reads as coming *from* the ring rather
+                        // than fading in on top of the desktop.
+                        .transition(.scale(scale: 0.86, anchor: popoverAnchor)
+                            .combined(with: .opacity)
+                            .combined(with: .offset(popoverEntryOffset)))
                 }
             }
             .frame(width: frames.window.width, height: frames.window.height, alignment: .topLeading)
             .animation(.spring(response: 0.30, dampingFraction: 0.80), value: expanded)
-            .animation(.easeOut(duration: 0.12), value: open)
+            .animation(.spring(response: 0.26, dampingFraction: 0.82), value: open)
         }
     }
 }

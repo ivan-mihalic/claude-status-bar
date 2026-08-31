@@ -75,11 +75,18 @@ public struct UsageRingView: View {
 
     public var body: some View {
         ZStack {
-            arc(percent: model.weekPercent, inset: 0, width: 4)
-            arc(percent: model.sessionPercent, inset: 8, width: 3)
+            arc(percent: model.weekPercent, inset: 0, width: max(diameter * 0.085, 2.5))
+            arc(percent: model.sessionPercent, inset: max(diameter * 0.17, 5),
+                width: max(diameter * 0.065, 2))
             centre
         }
         .frame(width: diameter, height: diameter)
+        // The provider mark rides the ring's top-right shoulder, pulled outwards so it reads
+        // as a badge on the ring rather than another thing inside it.
+        .overlay(alignment: .topTrailing) {
+            ProviderMarkView(provider: model.provider, diameter: max(diameter * 0.34, 11))
+                .offset(x: diameter * 0.10, y: -diameter * 0.10)
+        }
         .contentShape(Circle())
         .help(model.label)
         .accessibilityElement(children: .ignore)

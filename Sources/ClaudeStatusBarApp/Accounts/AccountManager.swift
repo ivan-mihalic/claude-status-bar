@@ -83,6 +83,15 @@ public final class AccountManager {
         persist()
     }
 
+    /// Show or hide this account's ring in the notch panel. The account keeps syncing either
+    /// way — this is about the panel being readable, not about pausing an account.
+    public func setShownInNotch(_ id: UUID, _ shown: Bool) {
+        guard var a = appState.accounts.first(where: { $0.id == id }) else { return }
+        a.showInNotch = shown
+        appState.upsert(a)
+        persist()
+    }
+
     public func setLabel(_ id: UUID, _ label: String) {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,

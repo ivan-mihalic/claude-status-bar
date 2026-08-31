@@ -71,10 +71,14 @@ public final class NotchWindowController {
         build()
     }
 
-    private var ringCount: Int { min(env.appState.accounts.count, NotchMetrics.maxRings) }
+    /// Visible rings, not accounts: hiding an account changes the panel exactly as removing
+    /// one does, and the count is what the resting edge panel is sized from.
+    private var ringCount: Int {
+        min(NotchModel.rings(accounts: env.appState.accounts).count, NotchMetrics.maxRings)
+    }
 
-    /// The resting edge panel is sized from the account count, so adding or removing an
-    /// account changes the window itself, not just what is drawn in it.
+    /// The resting edge panel is sized from the visible ring count, so adding, removing or
+    /// hiding an account changes the window itself, not just what is drawn in it.
     public func accountsChanged() {
         guard enabled, let layout, layout.placement.isEdge else { return }
         if layout.collapsed.size != NotchMetrics.edgeCollapsedSize(ringCount: ringCount) {

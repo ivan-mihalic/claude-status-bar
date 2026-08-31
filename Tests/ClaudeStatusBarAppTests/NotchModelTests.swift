@@ -75,3 +75,33 @@ private let snapshot = UsageSnapshot(
     let b = account(status: .ok, snapshot: snapshot)
     #expect(NotchModel.rings(accounts: [a, b]).map(\.id) == [a.id, b.id])
 }
+
+// MARK: Per-account visibility
+
+@Test func hiddenAccounts_getNoRing() {
+    var hidden = account(status: .ok, snapshot: snapshot)
+    hidden.showInNotch = false
+    let shown = account(status: .ok, snapshot: snapshot)
+    #expect(NotchModel.rings(accounts: [hidden, shown]).map(\.id) == [shown.id])
+}
+
+@Test func accountsSavedBeforeThePanelExisted_areShown() {
+    // `nil` must mean visible: turning a feature on may not silently hide someone's account.
+    let legacy = account(status: .ok, snapshot: snapshot)
+    #expect(legacy.showInNotch == nil)
+    #expect(legacy.isShownInNotch)
+    #expect(NotchModel.rings(accounts: [legacy]).count == 1)
+}
+
+@Test func hidingEveryAccount_leavesAnEmptyPanelRatherThanACrash() {
+    var a = account(status: .ok, snapshot: snapshot); a.showInNotch = false
+    var b = account(status: .ok, snapshot: snapshot); b.showInNotch = false
+    #expect(NotchModel.rings(accounts: [a, b]).isEmpty)
+}
+
+@Test func ringCarriesItsProvider() {
+    #expect(NotchModel.ring(for: account(status: .ok, snapshot: snapshot)).provider == .claude)
+    var codex = account(status: .ok, snapshot: snapshot)
+    codex.provider = .codex
+    #expect(NotchModel.ring(for: codex).provider == .codex)
+}

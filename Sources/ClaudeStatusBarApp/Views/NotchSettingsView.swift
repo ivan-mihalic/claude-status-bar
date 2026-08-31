@@ -6,13 +6,14 @@ import SwiftUI
 /// preview here is the fastest way to see what a setting does without hunting for the panel
 /// on screen.
 public struct NotchSettingsView: View {
+    @Bindable var env: AppEnvironment
     @AppStorage("showNotchPanel") private var enabled = false
     @AppStorage("notchPlacement") private var placementRaw = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var edgeOffset = 50.0
     @AppStorage("notchExpandOnHover") private var expandOnHover = true
     @AppStorage("notchShowPopover") private var showPopover = true
 
-    public init() {}
+    public init(env: AppEnvironment) { self.env = env }
 
     private var placement: NotchPlacement {
         NotchPlacement(rawValue: placementRaw) ?? .topCenter
@@ -52,6 +53,35 @@ public struct NotchSettingsView: View {
                      : "At the top the panel rests inside the notch — on a Mac without one it "
                        + "appears as a pill over the middle of the menu bar, and both are "
                        + "hidden until you point at them.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Accounts in the panel") {
+                if env.appState.accounts.isEmpty {
+                    Text("No accounts yet.").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(env.appState.accounts) { account in
+                        Toggle(isOn: Binding(
+                            get: { account.isShownInNotch },
+                            set: { env.accountManager.setShownInNotch(account.id, $0) })
+                        ) {
+                            HStack(spacing: 8) {
+                                ProviderMarkView(provider: account.effectiveProvider,
+                                                 diameter: 16)
+                                Text(account.label)
+                                if let prefix = account.menuBarPrefix, !prefix.isEmpty {
+                                    Text(prefix)
+                                        .font(.caption2.weight(.semibold))
+                                        .padding(.horizontal, 5).padding(.vertical, 1)
+                                        .background(Capsule().fill(.quaternary))
+                                }
+                            }
+                        }
+                        .disabled(!enabled)
+                    }
+                }
+                Text("Hiding an account only removes its ring — it keeps syncing and still "
+                     + "counts towards the menu-bar icon.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

@@ -54,9 +54,11 @@ struct ClaudeStatusBarMain: App {
         .onChange(of: notchShowPopover) { _, _ in
             notch?.setBehaviour(expandOnHover: notchExpandOnHover, showPopover: notchShowPopover)
         }
-        // An edge panel is sized from the account count, so the window itself changes when
-        // accounts come and go.
-        .onChange(of: env.appState.accounts.count) { _, _ in notch?.accountsChanged() }
+        // An edge panel is sized from the number of *visible* rings, so the window itself
+        // changes when accounts come, go, or get hidden from the panel.
+        .onChange(of: env.appState.accounts.filter(\.isShownInNotch).count) { _, _ in
+            notch?.accountsChanged()
+        }
         .onChange(of: notchPlacement) { _, _ in
             notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                 edgeOffsetPercent: notchEdgeOffset)

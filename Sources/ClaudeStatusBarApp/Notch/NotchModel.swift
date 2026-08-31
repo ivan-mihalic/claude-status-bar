@@ -20,18 +20,26 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     public let badge: RingBadge?
     /// Every window, in display order, for the popover's progress bars.
     public let windows: [UsageWindow]
+    /// Drawn as a small mark on the ring's shoulder, so a panel mixing services still says
+    /// which number belongs to which.
+    public let provider: Provider
 
     public init(id: UUID, label: String, prefix: String?, weekPercent: Double?,
                 sessionPercent: Double?, level: IndicatorLevel, badge: RingBadge?,
-                windows: [UsageWindow]) {
+                windows: [UsageWindow], provider: Provider = .claude) {
         self.id = id; self.label = label; self.prefix = prefix
         self.weekPercent = weekPercent; self.sessionPercent = sessionPercent
         self.level = level; self.badge = badge; self.windows = windows
+        self.provider = provider
     }
 }
 
 public enum NotchModel {
-    public static func rings(accounts: [Account]) -> [RingModel] { accounts.map(ring(for:)) }
+    /// Only the accounts the user wants in the panel. Hiding one does not stop it syncing —
+    /// it still counts towards the menu-bar icon.
+    public static func rings(accounts: [Account]) -> [RingModel] {
+        accounts.filter(\.isShownInNotch).map(ring(for:))
+    }
 
     public static func ring(for account: Account) -> RingModel {
         let snap = account.lastSnapshot
@@ -51,7 +59,8 @@ public enum NotchModel {
                          sessionPercent: session,
                          level: MenuBarIndicator.level(maxUtilization: worst),
                          badge: badge(for: account.status),
-                         windows: snap?.allWindows ?? [])
+                         windows: snap?.allWindows ?? [],
+                         provider: account.effectiveProvider)
     }
 
     /// Exhaustive on purpose: a status added later breaks the build here rather than

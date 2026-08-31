@@ -101,6 +101,10 @@ Three positions:
 | **Top (notch)** | hidden inside the MacBook notch — a pill over the middle of the menu bar on displays without one | grows downwards, rings in a row |
 | **Left / right edge** | small rings, **always visible**, at a height you pick with a slider | rings grow, a gear appears |
 
+Each ring carries a small provider mark on its shoulder, and the **Notch Panel** screen lets
+you hide individual accounts from the panel — a hidden account keeps syncing and still counts
+towards the menu-bar icon, it just gets no ring.
+
 Point at a ring and its details open beside the panel (below it at the top, to the side on an
 edge): every limit window with its own bar, percentage and reset time. That popover is the only
 place a number is written out — the rings themselves stay uncluttered.
