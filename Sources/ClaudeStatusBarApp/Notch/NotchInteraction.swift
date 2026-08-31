@@ -48,6 +48,43 @@ public enum NotchInteraction {
     }
 }
 
+extension NotchInteraction {
+    /// What the panel should do about a pointer position.
+    public struct Decision: Equatable, Sendable {
+        public let expanded: Bool
+        public let popoverIndex: Int?
+        /// Whether the window should take mouse events at all. `false` means the click goes
+        /// to whatever is behind the panel.
+        public let acceptsMouse: Bool
+    }
+
+    /// The rule that makes the popover reachable.
+    ///
+    /// Selecting a popover is a hover on a ring, but *keeping* it is a hover anywhere on the
+    /// panel or the card. The two are different on purpose: the path from a ring to its card
+    /// crosses the panel's own padding and then an 8pt gap, and neither has a ring under it.
+    /// Closing on "no ring here" made the card impossible to reach — it vanished mid-travel
+    /// and the panel collapsed behind it.
+    public static func decide(state: NotchPointerState, current: Int?,
+                              expandOnHover: Bool, showPopover: Bool,
+                              ringCount: Int = Int.max) -> Decision {
+        guard state.isInteractive else {
+            return Decision(expanded: false, popoverIndex: nil, acceptsMouse: false)
+        }
+        guard expandOnHover else {
+            // Not expanding, but the panel is still under the pointer and still clickable.
+            return Decision(expanded: false, popoverIndex: nil, acceptsMouse: true)
+        }
+        guard showPopover else {
+            return Decision(expanded: true, popoverIndex: nil, acceptsMouse: true)
+        }
+        // A ring under the pointer selects; anything else on the panel keeps what is open.
+        // An index left over from an account that has since gone is dropped.
+        let kept = current.flatMap { $0 < ringCount ? $0 : nil }
+        return Decision(expanded: true, popoverIndex: state.ringIndex ?? kept, acceptsMouse: true)
+    }
+}
+
 /// Keeps the panel where it belongs.
 ///
 /// `NSWindow.isMovable = false` only stops the *user* dragging a window; a window manager

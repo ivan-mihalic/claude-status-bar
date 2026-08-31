@@ -27,7 +27,11 @@ struct ClaudeStatusBarMain: App {
         } label: {
             let level = MenuBarIndicator.level(maxUtilization: env.appState.maxUtilization)
             Image(systemName: level == .critical ? "gauge.high" : level == .warn ? "gauge.medium" : "gauge.low")
-            Text(MenuBarLabel.text(accounts: env.appState.accounts, showAccountPercents: showAccountPercents))
+            // An empty Text still reserves space next to the icon, so the icon-only case has
+            // to omit the view rather than render nothing into it.
+            let label = MenuBarLabel.text(accounts: env.appState.accounts,
+                                          showAccountPercents: showAccountPercents)
+            if !label.isEmpty { Text(label) }
         }
         .menuBarExtraStyle(.window)
         // The notch panel is a second *view* of the same AppState, never a second source of

@@ -40,8 +40,10 @@ private func mkAccount(prefix: String?, session: Double?, week: Double?, premium
 @Test func menuBarLabel_off_showsOverallMax() {
     let a = mkAccount(prefix: "W", session: 20, week: 19, premium: 5)
     let b = mkAccount(prefix: "P", session: 30, week: 88, premium: 40)
-    #expect(MenuBarLabel.text(accounts: [a, b], showAccountPercents: false) == "88%")
-    #expect(MenuBarLabel.text(accounts: [], showAccountPercents: false) == "—")
+    // With per-account percentages off the menu bar is the icon alone: the number said
+    // nothing about *whose* limit it was, and the icon already carries the warning.
+    #expect(MenuBarLabel.text(accounts: [a, b], showAccountPercents: false) == "")
+    #expect(MenuBarLabel.text(accounts: [], showAccountPercents: false) == "")
 }
 
 @Test func menuBarLabel_on_perAccountWithPrefix_and3Windows() {
@@ -82,16 +84,25 @@ private func mkVisible(_ prefix: String, _ pct: Double, shownInMenuBar: Bool? = 
 }
 
 @Test func aHiddenAccountStillDrivesTheWarningIcon() {
-    // Hiding is about menu-bar width, not about muting an account. If a hidden account were
-    // dropped from the maximum, the app would quietly stop warning about it.
-    let shown = mkVisible("W", 10)
-    let hidden = mkVisible("P", 95, shownInMenuBar: false)
-    #expect(MenuBarLabel.text(accounts: [shown, hidden], showAccountPercents: false) == "95%")
+    // Hiding is about menu-bar width, not about muting an account. The icon's level is the
+    // thing that must still see it — measured on the icon, not on the label, because the
+    // label no longer carries a number at all.
+    let state = AppState()
+    state.upsert(mkVisible("W", 10))
+    state.upsert(mkVisible("P", 95, shownInMenuBar: false))
+    #expect(MenuBarIndicator.level(maxUtilization: state.maxUtilization) == .critical)
+    #expect(MenuBarLabel.text(accounts: state.accounts, showAccountPercents: false) == "")
 }
 
-@Test func hidingEveryAccount_fallsBackToTheOverallNumber() {
-    // An empty label next to the icon reads as a broken app; the single worst number does not.
+@Test func hidingEveryAccount_leavesTheIconAlone() {
+    // Not a fallback number: hiding every account means "just the icon", the same as turning
+    // per-account percentages off.
     let a = mkVisible("W", 20, shownInMenuBar: false)
     let b = mkVisible("P", 40, shownInMenuBar: false)
-    #expect(MenuBarLabel.text(accounts: [a, b], showAccountPercents: true) == "40%")
+    #expect(MenuBarLabel.text(accounts: [a, b], showAccountPercents: true) == "")
+    // The icon still knows about them.
+    let state = AppState()
+    state.upsert(a); state.upsert(b)
+    #expect(MenuBarIndicator.level(maxUtilization: state.maxUtilization) == .ok)
+    #expect(state.maxUtilization == 40)
 }

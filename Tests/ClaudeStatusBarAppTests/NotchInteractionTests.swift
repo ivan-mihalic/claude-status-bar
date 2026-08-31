@@ -91,3 +91,62 @@ private func setup(_ placement: NotchPlacement, rings: Int = 3, expanded: Bool =
     #expect(NotchWindowGuard.needsRestore(current: expected.offsetBy(dx: 0.25, dy: -0.25),
                                           expected: expected) == false)
 }
+
+// MARK: Reaching the popover across the gap (reported 2026-08-31)
+
+// The bug: moving from a ring towards its popover crosses the panel's own padding, where no
+// ring is under the pointer. Treating that as "no ring selected" closed the popover while the
+// pointer was still ON the panel — and one step later, with no popover left to be inside of,
+// the gap read as `.away` and the whole panel collapsed. The popover was unreachable.
+@Test func leavingARingWithoutLeavingThePanel_keepsThePopoverOpen() {
+    let d = NotchInteraction.decide(state: .onPanel(ringIndex: nil), current: 1,
+                                    expandOnHover: true, showPopover: true)
+    #expect(d.popoverIndex == 1)
+    #expect(d.expanded)
+}
+
+@Test func crossingTheGapOntoThePopover_keepsIt() {
+    let d = NotchInteraction.decide(state: .onPopover, current: 2,
+                                    expandOnHover: true, showPopover: true)
+    #expect(d.popoverIndex == 2)
+    #expect(d.expanded)
+    #expect(d.acceptsMouse)
+}
+
+@Test func movingOntoAnotherRing_switchesThePopover() {
+    let d = NotchInteraction.decide(state: .onPanel(ringIndex: 3), current: 1,
+                                    expandOnHover: true, showPopover: true)
+    #expect(d.popoverIndex == 3)
+}
+
+@Test func leavingEverything_closesIt() {
+    let d = NotchInteraction.decide(state: .away, current: 1,
+                                    expandOnHover: true, showPopover: true)
+    #expect(d.popoverIndex == nil)
+    #expect(d.expanded == false)
+    // And the window goes back to letting clicks through.
+    #expect(d.acceptsMouse == false)
+}
+
+@Test func hoverExpansionOff_meansTheresNothingToReach() {
+    let d = NotchInteraction.decide(state: .onPanel(ringIndex: 0), current: nil,
+                                    expandOnHover: false, showPopover: true)
+    #expect(d.expanded == false)
+    #expect(d.popoverIndex == nil)
+    // Still clickable where it is drawn — it is a panel, not a picture.
+    #expect(d.acceptsMouse)
+}
+
+@Test func popoversOff_expandsWithoutOpeningOne() {
+    let d = NotchInteraction.decide(state: .onPanel(ringIndex: 0), current: nil,
+                                    expandOnHover: true, showPopover: false)
+    #expect(d.expanded)
+    #expect(d.popoverIndex == nil)
+}
+
+@Test func aStalePopoverIndexIsNotCarriedOntoAPanelThatHasNoRings() {
+    // Accounts can be removed or hidden while the popover is open.
+    let d = NotchInteraction.decide(state: .onPanel(ringIndex: nil), current: 4,
+                                    expandOnHover: true, showPopover: true, ringCount: 2)
+    #expect(d.popoverIndex == nil)
+}

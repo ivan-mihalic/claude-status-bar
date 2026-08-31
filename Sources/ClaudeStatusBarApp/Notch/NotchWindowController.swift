@@ -21,6 +21,7 @@ public final class NotchWindowController {
     private var screenObserver: (any NSObjectProtocol)?
     private var frameObserver: (any NSObjectProtocol)?
     private var mouseMonitors: [Any] = []
+    private var pointerPoll: Timer?
     /// Where the panel belongs. Anything else is a window manager having opinions.
     private var expectedFrame: CGRect?
     private var layout: NotchLayout?
@@ -148,6 +149,21 @@ public final class NotchWindowController {
         mouseMonitors = [global, local].compactMap { $0 }
     }
 
+    /// While the panel is open the event monitors stop being a reliable source: with
+    /// `ignoresMouseEvents` off the moves are delivered to *this* app, so the global monitor
+    /// goes quiet, and the panel is not a key window, so the local one never sees a
+    /// mouse-moved either. Reading the pointer directly does not depend on delivery at all.
+    /// It runs only while the panel is open, and stops the moment it closes.
+    private func setPointerPolling(_ on: Bool) {
+        guard on != (pointerPoll != nil) else { return }
+        pointerPoll?.invalidate()
+        pointerPoll = nil
+        guard on else { return }
+        pointerPoll = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pointerMoved(toScreenPoint: NSEvent.mouseLocation) }
+        }
+    }
+
     private func restoreFrameIfMoved() {
         guard let panel, let expectedFrame,
               NotchWindowGuard.needsRestore(current: panel.frame, expected: expectedFrame)
@@ -162,6 +178,7 @@ public final class NotchWindowController {
         frameObserver = nil
         mouseMonitors.forEach(NSEvent.removeMonitor)
         mouseMonitors = []
+        setPointerPolling(false)
         expectedFrame = nil
         panel?.orderOut(nil)
         panel = nil
@@ -195,21 +212,17 @@ public final class NotchWindowController {
         let state = NotchInteraction.state(pointInWindow: inWindow, layout: layout,
                                            frames: frames, ringCount: ringCount)
 
+        let decision = NotchInteraction.decide(state: state, current: popoverIndex,
+                                               expandOnHover: expandOnHover,
+                                               showPopover: showPopover,
+                                               ringCount: ringCount)
         // The whole point: outside the drawn panel the window is transparent to clicks.
-        panel.ignoresMouseEvents = !state.isInteractive
+        panel.ignoresMouseEvents = !decision.acceptsMouse
 
-        var nextExpanded = false
-        var nextPopover: Int?
-        if expandOnHover, state.isInteractive {
-            nextExpanded = true
-            if showPopover {
-                nextPopover = state == .onPopover ? popoverIndex : state.ringIndex
-            }
-        }
-
-        guard nextExpanded != expanded || nextPopover != popoverIndex else { return }
-        expanded = nextExpanded
-        popoverIndex = nextPopover
+        guard decision.expanded != expanded || decision.popoverIndex != popoverIndex else { return }
+        expanded = decision.expanded
+        popoverIndex = decision.popoverIndex
+        setPointerPolling(decision.expanded)
         host.rootView = rootView()
         applyState(to: host)
     }
