@@ -78,7 +78,7 @@ public final class NotchWindowController {
     private var enabled = false
     private var placement: NotchPlacement = .topCenter
     private var edgeOffsetPercent: Double = 50
-    private var showRingsAtRestOnTop = false
+    private var ringsAtRest = RingsAtRest()
     private var display: NotchDisplay = .mainDisplay
     private var expandOnHover = true
     private var showPopover = true
@@ -110,14 +110,14 @@ public final class NotchWindowController {
     /// Placement, edge height and target display all change the windows themselves, so a
     /// change rebuilds rather than redraws.
     public func setPlacement(_ placement: NotchPlacement, edgeOffsetPercent: Double,
-                             showRingsAtRestOnTop: Bool, display: NotchDisplay) {
+                             ringsAtRest: RingsAtRest, display: NotchDisplay) {
         guard placement != self.placement
                 || edgeOffsetPercent != self.edgeOffsetPercent
-                || showRingsAtRestOnTop != self.showRingsAtRestOnTop
+                || ringsAtRest != self.ringsAtRest
                 || display != self.display else { return }
         self.placement = placement
         self.edgeOffsetPercent = edgeOffsetPercent
-        self.showRingsAtRestOnTop = showRingsAtRestOnTop
+        self.ringsAtRest = ringsAtRest
         self.display = display
         rebuild()
     }
@@ -193,7 +193,7 @@ public final class NotchWindowController {
                                               placement: placement,
                                               edgeOffsetPercent: edgeOffsetPercent,
                                               ringCount: ringCount,
-                                              showRingsAtRest: showRingsAtRestOnTop)
+                                              ringsAtRest: ringsAtRest)
             let openWindowSize = NotchMetrics.windowSize(placement: placement,
                                                          collapsed: layout.collapsed.size,
                                                          ringCount: ringCount,

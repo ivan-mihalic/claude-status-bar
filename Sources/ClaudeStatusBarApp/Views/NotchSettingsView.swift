@@ -10,7 +10,8 @@ public struct NotchSettingsView: View {
     @AppStorage("showNotchPanel") private var enabled = false
     @AppStorage("notchPlacement") private var placementRaw = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var edgeOffset = 50.0
-    @AppStorage("notchShowRingsAtRestOnTop") private var showRingsAtRestOnTop = false
+    @AppStorage(NotchSettingsMigration.notchedKey) private var ringsOnNotchedDisplay = false
+    @AppStorage(NotchSettingsMigration.plainKey) private var ringsOnPlainDisplay = false
     @AppStorage("notchDisplay") private var displayRaw = NotchDisplay.mainDisplay.rawValue
     @AppStorage("notchExpandOnHover") private var expandOnHover = true
     @AppStorage("notchShowPopover") private var showPopover = true
@@ -19,6 +20,17 @@ public struct NotchSettingsView: View {
 
     private var placement: NotchPlacement {
         NotchPlacement(rawValue: placementRaw) ?? .topCenter
+    }
+
+    private var display: NotchDisplay { NotchDisplay(rawValue: displayRaw) ?? .mainDisplay }
+
+    /// Whether the screen the panel is on right now has a cutout — so the two switches below
+    /// can say which of them is the one in effect. `nil` when the panel is on every display
+    /// and the question has no single answer.
+    private var panelScreenHasNotch: Bool? {
+        guard display != .allDisplays,
+              let screen = NotchScreens.screens(for: display).first else { return nil }
+        return NotchScreens.hasNotch(NotchGeometry.metrics(of: screen))
     }
 
     public var body: some View {
@@ -61,12 +73,27 @@ public struct NotchSettingsView: View {
                 }
 
                 if placement == .topCenter {
-                    Toggle("Keep the rings visible without hovering", isOn: $showRingsAtRestOnTop)
+                    // Two switches rather than one: on a Mac with a cutout the resting panel
+                    // can disappear into it, which is worth keeping; on a display without one
+                    // it is a black pill whether or not the rings show. Working on the laptop
+                    // and then plugging in a monitor used to mean toggling this by hand.
+                    Text("Keep the rings visible without hovering")
+                    Toggle("On the display with the notch", isOn: $ringsOnNotchedDisplay)
+                        .disabled(!enabled)
+                    Toggle("On a display without a notch", isOn: $ringsOnPlainDisplay)
                         .disabled(!enabled)
                     Text("Small rings sit under the panel the way they do on an edge. On a Mac "
                          + "with a real notch they start below the cutout, because nothing is "
-                         + "visible behind it; on an external display they sit at the top.")
+                         + "visible behind it; on an external display they sit at the top. "
+                         + "Whichever screen the panel lands on picks its own answer, so "
+                         + "connecting a display switches this on its own.")
                         .font(.caption).foregroundStyle(.secondary)
+                    if let hasNotch = panelScreenHasNotch {
+                        Text(hasNotch
+                             ? "Right now the panel is on the display with the notch."
+                             : "Right now the panel is on a display without a notch.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
 
                 Text(placement.isEdge

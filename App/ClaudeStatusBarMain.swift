@@ -12,7 +12,10 @@ struct ClaudeStatusBarMain: App {
     @AppStorage("showNotchPanel") private var showNotchPanel = false
     @AppStorage("notchPlacement") private var notchPlacement = NotchPlacement.topCenter.rawValue
     @AppStorage("notchEdgeOffsetPercent") private var notchEdgeOffset = 50.0
-    @AppStorage("notchShowRingsAtRestOnTop") private var notchRingsAtRestOnTop = false
+    // Two switches, not one: the panel hides inside a real cutout, which is a choice that
+    // only exists on a Mac that has one. See RingsAtRest.
+    @AppStorage(NotchSettingsMigration.notchedKey) private var ringsOnNotchedDisplay = false
+    @AppStorage(NotchSettingsMigration.plainKey) private var ringsOnPlainDisplay = false
     @AppStorage("notchDisplay") private var notchDisplay = NotchDisplay.mainDisplay.rawValue
     @AppStorage("notchExpandOnHover") private var notchExpandOnHover = true
     @AppStorage("notchShowPopover") private var notchShowPopover = true
@@ -20,6 +23,11 @@ struct ClaudeStatusBarMain: App {
     @State private var notch: NotchWindowController?
     private let updaterUIDelegate = UpdaterUIDelegate()
     private let updaterController: SPUStandardUpdaterController
+
+    private var ringsAtRest: RingsAtRest {
+        RingsAtRest(onNotchedDisplay: ringsOnNotchedDisplay,
+                    onPlainDisplay: ringsOnPlainDisplay)
+    }
 
     var body: some Scene {
         MenuBarExtra {
@@ -50,7 +58,7 @@ struct ClaudeStatusBarMain: App {
             }
             controller.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                     edgeOffsetPercent: notchEdgeOffset,
-                                    showRingsAtRestOnTop: notchRingsAtRestOnTop,
+                                    ringsAtRest: ringsAtRest,
                                     display: NotchDisplay(rawValue: notchDisplay) ?? .mainDisplay)
             controller.setBehaviour(expandOnHover: notchExpandOnHover,
                                     showPopover: notchShowPopover)
@@ -74,10 +82,11 @@ struct ClaudeStatusBarMain: App {
             notch?.accountsChanged()
         }
         .onChange(of: [notchPlacement, String(notchEdgeOffset),
-                       String(notchRingsAtRestOnTop), notchDisplay]) { _, _ in
+                       String(ringsOnNotchedDisplay), String(ringsOnPlainDisplay),
+                       notchDisplay]) { _, _ in
             notch?.setPlacement(NotchPlacement(rawValue: notchPlacement) ?? .topCenter,
                                 edgeOffsetPercent: notchEdgeOffset,
-                                showRingsAtRestOnTop: notchRingsAtRestOnTop,
+                                ringsAtRest: ringsAtRest,
                                 display: NotchDisplay(rawValue: notchDisplay) ?? .mainDisplay)
         }
 
@@ -93,6 +102,9 @@ struct ClaudeStatusBarMain: App {
     }
 
     init() {
+        // Before anything reads the settings: moves the old single "rings at rest" switch
+        // onto the two per-display ones, once, without touching either if they already exist.
+        NotchSettingsMigration.apply(to: .standard)
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true, updaterDelegate: nil, userDriverDelegate: updaterUIDelegate)
         env.bootstrap()

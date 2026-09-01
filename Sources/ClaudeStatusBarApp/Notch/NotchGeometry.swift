@@ -130,12 +130,26 @@ public enum NotchGeometry {
     /// - Parameter ringCount: needed for the edge placements, whose resting panel shows the
     ///   rings and therefore grows with the number of accounts.
     /// - Parameter showRingsAtRest: top placement only — draw the rings without hovering,
-    ///   the way an edge panel always does.
+    ///   the way an edge panel always does. The same answer for either kind of screen; the
+    ///   `ringsAtRest:` form is what the app itself uses.
     public static func layout(for m: ScreenMetrics,
                               placement: NotchPlacement = .topCenter,
                               edgeOffsetPercent: Double = 50,
                               ringCount: Int = 0,
                               showRingsAtRest: Bool = false) -> NotchLayout {
+        layout(for: m, placement: placement, edgeOffsetPercent: edgeOffsetPercent,
+               ringCount: ringCount,
+               ringsAtRest: showRingsAtRest ? .always : .never)
+    }
+
+    /// - Parameter ringsAtRest: top placement only, and answered per kind of screen — the
+    ///   panel hides inside a real cutout, which is a choice that only exists on a Mac that
+    ///   has one. Which half applies is decided here, from the screen being laid out.
+    public static func layout(for m: ScreenMetrics,
+                              placement: NotchPlacement,
+                              edgeOffsetPercent: Double = 50,
+                              ringCount: Int = 0,
+                              ringsAtRest: RingsAtRest) -> NotchLayout {
         switch placement {
         case .topCenter:
             // A hardware cutout is the only thing that reserves space. Its height comes from
@@ -151,6 +165,10 @@ public enum NotchGeometry {
                     clearance = m.topInset
                 }
             }
+            // Decided after `kind`, because that is the authoritative answer to "does this
+            // screen have a cutout" — it also rules out a reported inset with no usable
+            // width either side of it.
+            let showRingsAtRest = ringsAtRest.value(hasNotch: kind == .hardware)
             let size = showRingsAtRest
                 ? NotchMetrics.topCollapsedSize(notchSize: notchSize, notchClearance: clearance,
                                                 ringCount: ringCount)
