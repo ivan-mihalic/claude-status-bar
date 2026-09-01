@@ -54,21 +54,26 @@ public struct UsageRingView: View {
 
     /// The centre: the account's own prefix if it has one, otherwise a glyph. A failure badge
     /// wins over both — the arcs behind it may be stale and must not look authoritative.
+    ///
+    /// Every size here goes through `animatableFont` rather than `.font(.system(size:))`. The
+    /// arcs around this glyph grow by interpolation — frames, `trim`, `StrokeStyle` all carry
+    /// animatable data — but a `Font` does not, so a plain `.font` made the letter jump to its
+    /// new size while the ring was still growing around it.
     @ViewBuilder private var centre: some View {
         if let badgeSymbol {
             Image(systemName: badgeSymbol)
-                .font(.system(size: diameter * 0.26, weight: .semibold))
+                .animatableFont(size: diameter * 0.26, weight: .semibold)
                 .foregroundStyle(Self.tint(model.weekPercent))
         } else if let prefix = model.prefix {
             Text(prefix)
-                .font(.system(size: diameter * 0.30, weight: .bold, design: .rounded))
+                .animatableFont(size: diameter * 0.30, weight: .bold, design: .rounded)
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .frame(width: diameter * 0.48)
         } else {
             Image(systemName: "gauge.medium")
-                .font(.system(size: diameter * 0.28, weight: .semibold))
+                .animatableFont(size: diameter * 0.28, weight: .semibold)
                 .foregroundStyle(.white)
         }
     }

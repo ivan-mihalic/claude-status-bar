@@ -83,7 +83,7 @@ public struct NotchRootView: View {
                 .frame(width: d, height: d)
         } else {
             Image(systemName: "gauge.medium")
-                .font(.system(size: d * 0.5, weight: .semibold))
+                .animatableFont(size: d * 0.5, weight: .semibold)
                 .foregroundStyle(.white.opacity(0.5))
                 .frame(width: d, height: d)
         }
