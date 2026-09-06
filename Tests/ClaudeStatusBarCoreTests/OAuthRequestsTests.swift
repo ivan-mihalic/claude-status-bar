@@ -23,6 +23,18 @@ import Foundation
     #expect(scope.contains("user:profile"))
 }
 
+@Test func codexAuthorizeURL_matchesTheBrowserFlow() throws {
+    let url = OAuthEndpoints.openAI.authorizeURL(
+        config: .codex, pkce: PKCE(verifier: "v", challenge: "challenge"), state: "state")
+    let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+    let query = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+    #expect(query["id_token_add_organizations"] == "true")
+    #expect(query["codex_cli_simplified_flow"] == "true")
+    #expect(query["originator"] == "codex_cli_rs")
+    #expect(query["scope"]?.contains("offline_access") == true)
+    #expect(query["scope"]?.contains("api.connectors.read") == true)
+}
+
 @Test func exchangeRequest_isFormURLEncodedPOST() throws {
     let req = OAuthRequests.exchange(
         tokenURL: URL(string: "https://platform.claude.com/v1/oauth/token")!,

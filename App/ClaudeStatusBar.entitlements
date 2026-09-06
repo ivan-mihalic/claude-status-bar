@@ -5,7 +5,7 @@
     <!-- Full App Sandbox (App Store-grade isolation). -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
-    <!-- Outgoing HTTPS only: Anthropic usage API, OAuth token host, Sparkle appcast + update download. -->
+    <!-- Outgoing HTTPS only: provider usage/auth hosts and Sparkle appcast + update download. -->
     <key>com.apple.security.network.client</key>
     <true/>
     <!-- Incoming connections, for one purpose only: the Codex sign-in redirects to

@@ -40,15 +40,18 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     /// still syncs and still drives the warning icon.
     public var showInMenuBar: Bool?
     /// Which service the account belongs to. Optional for decode compatibility; `nil` is
-    /// Claude, the only provider the app can talk to today.
+    /// Claude, which was the only provider in older account files.
     public var provider: Provider?
+    /// Optional user-selected colour for both usage arcs in the notch. `nil` retains the
+    /// automatic green/yellow/red utilisation colours used by older saved accounts.
+    public var ringColor: AccountRingColor?
 
     public init(id: UUID, label: String, accountUuid: String?,
                 syncInterval: Int, status: AccountStatus,
                 lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?,
                 menuBarPrefix: String? = nil, showInNotch: Bool? = nil,
                 showInMenuBar: Bool? = nil, provider: Provider? = nil,
-                lastAttemptAt: Date? = nil) {
+                lastAttemptAt: Date? = nil, ringColor: AccountRingColor? = nil) {
         self.id = id; self.label = label; self.accountUuid = accountUuid
         self.syncInterval = syncInterval; self.status = status
         self.lastSnapshot = lastSnapshot; self.lastSyncedAt = lastSyncedAt
@@ -57,6 +60,7 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
         self.showInNotch = showInNotch
         self.showInMenuBar = showInMenuBar
         self.provider = provider
+        self.ringColor = ringColor
     }
 
     public var effectiveInterval: Int { max(syncInterval, Self.intervalFloor) }

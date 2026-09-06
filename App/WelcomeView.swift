@@ -15,15 +15,15 @@ struct WelcomeView: View {
 
             Text("Welcome to Claude Status Bar").font(.title2.weight(.semibold))
 
-            Text("Claude Status Bar lives in your menu bar and tracks Claude Pro/Max usage across one or more accounts, so you can see how close you are to a rate limit at a glance.")
+            Text("Claude Status Bar lives in your menu bar and tracks Claude and Codex subscription usage across one or more accounts, so you can see how close you are to a rate limit at a glance.")
                 .font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 8) {
                 bullet("Runs as a menu-bar app only — no Dock icon by default.")
-                bullet("Adding an account signs you in at claude.ai and prompts you for Keychain access.")
-                bullet("Network access is limited to claude.ai, the OAuth token host, api.anthropic.com (usage lookups), and the app's own Sparkle update host (ivan-mihalic.github.io).")
+                bullet("Adding an account signs you in with Claude or ChatGPT and prompts you for Keychain access.")
+                bullet("Network access is limited to the selected provider's sign-in and usage hosts, plus the app's own Sparkle update host (ivan-mihalic.github.io).")
                 bullet("Your account tokens are stored in the macOS Keychain, never on disk in plain text.")
                 bullet("If you used a previous version, this update changed the Keychain group — please re-add your accounts once.")
             }

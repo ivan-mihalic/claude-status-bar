@@ -38,6 +38,17 @@ public final class AccountManager {
         return register(id: id, label: label, interval: interval, provider: pending.provider)
     }
 
+    public func beginDeviceCode(provider: Provider) async throws -> DeviceCodeLogin {
+        try await login.beginDeviceCode(provider: provider)
+    }
+
+    public func finishAdd(_ deviceLogin: DeviceCodeLogin, provider: Provider, label: String,
+                          interval: Int = Account.intervalDefault) async throws -> Account {
+        let id = UUID()
+        _ = try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id)
+        return register(id: id, label: label, interval: interval, provider: provider)
+    }
+
     public func finishAdd(_ pending: PendingLogin, code: String, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
@@ -60,18 +71,25 @@ public final class AccountManager {
     /// one under the *same* account id, so the tile keeps its name, menu-bar prefix,
     /// interval and position instead of a duplicate appearing next to it.
     public func reauth(_ id: UUID, _ pending: PendingLogin, code: String) async throws {
-        try await reauth(id, pending) { try await login.complete(pending, code: code, accountID: id) }
+        try await reauth(id) { try await login.complete(pending, code: code, accountID: id) }
     }
 
     /// Re-signs in a provider whose redirect lands on the loopback listener (Codex): there is
     /// no code to paste, so the browser round-trip *is* the whole step.
     public func reauth(_ id: UUID, _ pending: PendingLogin) async throws {
-        try await reauth(id, pending) {
+        try await reauth(id) {
             try await login.completeViaLoopback(pending, accountID: id)
         }
     }
 
-    private func reauth(_ id: UUID, _ pending: PendingLogin,
+    public func reauth(_ id: UUID, deviceLogin: DeviceCodeLogin,
+                       provider: Provider) async throws {
+        try await reauth(id) {
+            try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id)
+        }
+    }
+
+    private func reauth(_ id: UUID,
                         exchange: () async throws -> TokenBundle) async throws {
         guard appState.accounts.contains(where: { $0.id == id }) else {
             throw AccountError.unknownAccount
@@ -137,6 +155,13 @@ public final class AccountManager {
         guard !trimmed.isEmpty,
               var a = appState.accounts.first(where: { $0.id == id }) else { return }
         a.label = trimmed
+        appState.upsert(a)
+        persist()
+    }
+
+    public func setRingColor(_ id: UUID, _ color: AccountRingColor?) {
+        guard var a = appState.accounts.first(where: { $0.id == id }) else { return }
+        a.ringColor = color
         appState.upsert(a)
         persist()
     }

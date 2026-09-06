@@ -22,9 +22,16 @@ public struct OAuthClient: Sendable {
 
     public func exchange(code: String, verifier: String,
                          state: String) async throws -> TokenBundle {
+        try await exchange(code: code, verifier: verifier,
+                           redirectURI: config.redirectURI, state: state)
+    }
+
+    public func exchange(code: String, verifier: String, redirectURI: String,
+                         state: String? = nil) async throws -> TokenBundle {
         try await perform(previousRefreshToken: "") { host in
             OAuthRequests.exchange(tokenURL: host, config: config,
-                                   code: code, verifier: verifier, state: state)
+                                   code: code, verifier: verifier, state: state,
+                                   redirectURI: redirectURI)
         }
     }
 

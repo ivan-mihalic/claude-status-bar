@@ -33,7 +33,9 @@ public final class AppEnvironment {
         let login = OAuthLoginService(
             backends: [
                 .claude: LoginBackend(oauth: anthropic, endpoints: .production, config: .claudeCode),
-                .codex:  LoginBackend(oauth: openAI, endpoints: .openAI, config: .codex),
+                .codex:  LoginBackend(
+                    oauth: openAI, endpoints: .openAI, config: .codex,
+                    deviceCode: DeviceCodeAuthClient(http: http, oauth: openAI, config: .codex)),
             ],
             tokenStore: tokenStore, opener: SystemBrowserOpener())
 

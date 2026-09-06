@@ -23,6 +23,8 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     /// Drawn as a small mark on the ring's shoulder, so a panel mixing services still says
     /// which number belongs to which.
     public let provider: Provider
+    /// A user-selected sRGB colour for both arcs. `nil` keeps semantic utilisation colours.
+    public let ringColor: AccountRingColor?
     /// When this account last synced successfully enough to update its numbers. `nil` = never.
     public let lastSyncedAt: Date?
     /// When a sync was last attempted, and whether that attempt came back empty-handed.
@@ -33,12 +35,14 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     public init(id: UUID, label: String, prefix: String?, weekPercent: Double?,
                 sessionPercent: Double?, level: IndicatorLevel, badge: RingBadge?,
                 windows: [UsageWindow], provider: Provider = .claude,
+                ringColor: AccountRingColor? = nil,
                 lastSyncedAt: Date? = nil, lastAttemptAt: Date? = nil,
                 lastAttemptFailed: Bool = false) {
         self.id = id; self.label = label; self.prefix = prefix
         self.weekPercent = weekPercent; self.sessionPercent = sessionPercent
         self.level = level; self.badge = badge; self.windows = windows
         self.provider = provider; self.lastSyncedAt = lastSyncedAt
+        self.ringColor = ringColor
         self.lastAttemptAt = lastAttemptAt; self.lastAttemptFailed = lastAttemptFailed
     }
 }
@@ -70,6 +74,7 @@ public enum NotchModel {
                          badge: badge(for: account.status),
                          windows: snap?.allWindows ?? [],
                          provider: account.effectiveProvider,
+                         ringColor: account.ringColor,
                          lastSyncedAt: account.lastSyncedAt,
                          lastAttemptAt: account.lastAttemptAt,
                          lastAttemptFailed: account.lastAttemptFailed)

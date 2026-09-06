@@ -53,7 +53,7 @@ public struct DashboardView: View {
                 }.padding()
             }
             .frame(minWidth: 700, minHeight: 420)
-            .navigationTitle("Claude Usage")
+            .navigationTitle("Usage")
         }
     }
 }
@@ -76,27 +76,66 @@ private struct AccountEditFields: View {
     }
 
     var body: some View {
-        HStack {
-            Text("Name").font(.caption).foregroundStyle(.secondary)
-            TextField("account name", text: $name)
-                .textFieldStyle(.roundedBorder).font(.caption)
-                .onChange(of: name) { _, new in manager.setLabel(account.id, new) }
-            Text("Menu label").font(.caption).foregroundStyle(.secondary)
-            TextField("prefix", text: $prefix)
-                .textFieldStyle(.roundedBorder).font(.caption).frame(width: 90)
-                .onChange(of: prefix) { _, new in manager.setPrefix(account.id, new) }
-            Toggle("In menu bar", isOn: Binding(
-                get: { account.isShownInMenuBar },
-                set: { manager.setShownInMenuBar(account.id, $0) }))
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .font(.caption)
-                .help(showAccountPercents
-                      ? "Show this account's percentages next to the menu-bar icon. It keeps "
-                        + "syncing either way, and still turns the icon orange or red."
-                      : "Turn on Settings → \"Show each account's percentages in the menu bar\" "
-                        + "for this to have any effect: right now the menu bar shows a single "
-                        + "overall number.")
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Name").font(.caption).foregroundStyle(.secondary)
+                TextField("account name", text: $name)
+                    .textFieldStyle(.roundedBorder).font(.caption)
+                    .onChange(of: name) { _, new in manager.setLabel(account.id, new) }
+                Text("Menu label").font(.caption).foregroundStyle(.secondary)
+                TextField("prefix", text: $prefix)
+                    .textFieldStyle(.roundedBorder).font(.caption).frame(width: 90)
+                    .onChange(of: prefix) { _, new in manager.setPrefix(account.id, new) }
+                Toggle("In menu bar", isOn: Binding(
+                    get: { account.isShownInMenuBar },
+                    set: { manager.setShownInMenuBar(account.id, $0) }))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .font(.caption)
+                    .help(showAccountPercents
+                          ? "Show this account's percentages next to the menu-bar icon. It keeps "
+                            + "syncing either way, and still turns the icon orange or red."
+                          : "Turn on Settings → \"Show each account's percentages in the menu bar\" "
+                            + "for this to have any effect: right now the menu bar shows a single "
+                            + "overall number.")
+            }
+            HStack(spacing: 8) {
+                ColorPicker("Ring colour", selection: Binding(
+                    get: { Color(account.ringColor
+                                 ?? AccountRingColor.suggested(for: account.effectiveProvider)) },
+                    set: { manager.setRingColor(account.id, AccountRingColor($0)) }),
+                            supportsOpacity: false)
+                    .font(.caption)
+                    .fixedSize()
+                if account.ringColor != nil {
+                    Button("Use automatic warning colours") {
+                        manager.setRingColor(account.id, nil)
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
+                }
+                Text(account.ringColor == nil
+                     ? "Automatic changes from green to yellow and red with usage."
+                     : "This colour is used for both arcs of this account's notch ring.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
         }
+    }
+}
+
+private extension Color {
+    init(_ value: AccountRingColor) {
+        self.init(.sRGB, red: value.red, green: value.green, blue: value.blue,
+                  opacity: value.opacity)
+    }
+}
+
+private extension AccountRingColor {
+    init(_ color: Color) {
+        let converted = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
+        self.init(red: Double(converted.redComponent),
+                  green: Double(converted.greenComponent),
+                  blue: Double(converted.blueComponent),
+                  opacity: Double(converted.alphaComponent))
     }
 }

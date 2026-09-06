@@ -23,15 +23,16 @@ public enum OAuthRequests {
 
     public static func exchange(tokenURL: URL, config: OAuthConfig,
                                 code: String, verifier: String,
-                                state: String) -> URLRequest {
-        post(tokenURL, [
+                                state: String?, redirectURI: String? = nil) -> URLRequest {
+        var pairs = [
             ("grant_type", "authorization_code"),
             ("code", code),
-            ("redirect_uri", config.redirectURI),
+            ("redirect_uri", redirectURI ?? config.redirectURI),
             ("client_id", config.clientID),
             ("code_verifier", verifier),
-            ("state", state),
-        ])
+        ]
+        if let state { pairs.append(("state", state)) }
+        return post(tokenURL, pairs)
     }
 
     public static func refresh(tokenURL: URL, config: OAuthConfig,

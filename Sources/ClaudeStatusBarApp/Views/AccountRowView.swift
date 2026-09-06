@@ -65,6 +65,7 @@ public struct AccountRowView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
+                ProviderMarkView(provider: account.effectiveProvider, diameter: 18)
                 Text(account.label).font(.headline)
                 Spacer()
                 statusBadge.font(.caption)

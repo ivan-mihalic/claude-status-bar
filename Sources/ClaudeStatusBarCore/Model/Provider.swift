@@ -3,9 +3,7 @@ import Foundation
 
 /// The service an account belongs to.
 ///
-/// Only `claude` can actually be signed in today — the app speaks one usage API. The type
-/// exists now so the notch can badge a ring with where its numbers come from, and so adding
-/// a second service later is a new case rather than a reshuffle of every view.
+/// Both Claude and Codex subscription accounts can be signed in independently.
 public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
     case claude
     case codex
@@ -27,11 +25,7 @@ public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
     /// usage endpoint at all, and the numbers live only in the web dashboard behind a
     /// session cookie. Scraping that would break silently and then show stale figures,
     /// which is worse than not offering it.
-    /// Codex is temporarily off the menu: its OAuth sign-in did not complete in practice
-    /// (2026-08-31), and offering a flow that cannot finish is worse than not offering it.
-    /// The rest of the Codex path — usage client, adapter, token routing, loopback listener
-    /// — is intact and tested, so re-enabling it is this one value, not a re-implementation.
-    public var isSupported: Bool { self == .claude }
+    public var isSupported: Bool { self == .claude || self == .codex }
 
     /// The providers actually offered when adding an account.
     public static var selectableCases: [Provider] { allCases.filter(\.isSupported) }
@@ -40,8 +34,7 @@ public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
     public var unsupportedReason: String? {
         switch self {
         case .claude: return nil
-        case .codex:
-            return "Codex sign-in is disabled for now - the browser round-trip did not complete."
+        case .codex: return nil
         case .cursor:
             return "Cursor has no usage API - its limits are only visible in the web dashboard."
         }

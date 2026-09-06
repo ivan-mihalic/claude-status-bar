@@ -105,3 +105,10 @@ private let snapshot = UsageSnapshot(
     codex.provider = .codex
     #expect(NotchModel.ring(for: codex).provider == .codex)
 }
+
+@Test func ringCarriesTheAccountsSelectedColour() {
+    var coloured = account(status: .ok, snapshot: snapshot)
+    coloured.ringColor = AccountRingColor(red: 0.1, green: 0.2, blue: 0.3)
+    #expect(NotchModel.ring(for: coloured).ringColor == coloured.ringColor)
+    #expect(NotchModel.ring(for: account(status: .ok, snapshot: snapshot)).ringColor == nil)
+}

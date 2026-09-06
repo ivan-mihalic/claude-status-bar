@@ -5,9 +5,12 @@ public struct OAuthConfig: Equatable, Sendable {
     public let clientID: String
     public let scopes: [String]
     public let redirectURI: String
+    public let authorizeParameters: [String: String]
 
-    public init(clientID: String, scopes: [String], redirectURI: String) {
+    public init(clientID: String, scopes: [String], redirectURI: String,
+                authorizeParameters: [String: String] = [:]) {
         self.clientID = clientID; self.scopes = scopes; self.redirectURI = redirectURI
+        self.authorizeParameters = authorizeParameters
     }
 
     // Full browser login: user:profile is required for /api/oauth/usage.
@@ -20,10 +23,16 @@ public struct OAuthConfig: Equatable, Sendable {
     /// The Codex CLI's own OAuth client. Its redirect is a fixed loopback address that cannot
     /// be changed from here, which is why signing in to Codex needs a short-lived local
     /// listener (and the `network.server` entitlement) while the Anthropic flow does not.
-    /// Values read out of the shipped `@openai/codex` binary on 2026-08-31.
+    /// Values kept in sync with the open-source Codex CLI login implementation.
     public static let codex = OAuthConfig(
         clientID: "app_EMoamEEZ73f0CkXaXp7hrann",
-        scopes: ["openid", "profile", "email", "offline_access"],
-        redirectURI: "http://localhost:1455/auth/callback"
+        scopes: ["openid", "profile", "email", "offline_access",
+                 "api.connectors.read", "api.connectors.invoke"],
+        redirectURI: "http://localhost:1455/auth/callback",
+        authorizeParameters: [
+            "id_token_add_organizations": "true",
+            "codex_cli_simplified_flow": "true",
+            "originator": "codex_cli_rs",
+        ]
     )
 }

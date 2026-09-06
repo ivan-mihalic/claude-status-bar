@@ -27,7 +27,7 @@ struct AboutView: View {
                  destination: URL(string: "https://github.com/ivan-mihalic/claude-status-bar")!)
                 .font(.callout)
 
-            Text("Track Claude Pro/Max usage across multiple accounts.")
+            Text("Track Claude and Codex subscription usage across multiple accounts.")
                 .font(.caption).foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }

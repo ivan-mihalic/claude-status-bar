@@ -13,7 +13,8 @@ import Foundation
 
     let acct = Account(id: UUID(), label: "work@example.com", accountUuid: "u",
                        syncInterval: 300, status: .ok,
-                       lastSnapshot: nil, lastSyncedAt: nil)
+                       lastSnapshot: nil, lastSyncedAt: nil,
+                       ringColor: AccountRingColor(red: 0.1, green: 0.2, blue: 0.3))
     try store.save([acct])
     #expect(try store.load() == [acct])
 

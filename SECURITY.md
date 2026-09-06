@@ -52,8 +52,7 @@ four entitlements — nothing else is requested:
    token hosts, and Sparkle's appcast/update download — see
    [Network endpoints](#network-endpoints-contacted) below.
 3. **`com.apple.security.network.server`** — added in 0.6.0 for **one** purpose: signing in to
-   a **Codex** account. *(Codex sign-in is disabled as of 0.6.1, so nothing currently uses this;
-   it is declared because the code path ships.)* That OAuth client's redirect URI is fixed at
+   a **Codex** account through the browser. That OAuth client's redirect URI is fixed at
    `http://localhost:1455/auth/callback` and cannot be changed by this app, so the browser can
    only hand the authorization code back through a local address. The listener
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
@@ -75,8 +74,8 @@ your files, cannot see other apps' containers, and cannot read Claude Code's loc
 
 ## Network endpoints contacted
 
-The app only ever contacts Anthropic/Claude-product hosts, plus its own Sparkle update host, all
-over HTTPS:
+The app only contacts the selected provider's authentication and usage hosts, plus its own
+Sparkle update host, over HTTPS:
 
 - **`claude.ai`** (`https://claude.ai/oauth/authorize`) — where your **default browser** (not an
   embedded webview) opens for the OAuth sign-in itself, when you click **Sign in with Claude…**.
@@ -113,12 +112,13 @@ covered by the same `network.client` entitlement.
 
 - `https://auth.openai.com/oauth/authorize` and `/oauth/token` — the sign-in and token
   exchange/refresh, using the Codex CLI's OAuth client and PKCE, exactly as the CLI does.
+- `https://auth.openai.com/api/accounts/deviceauth/usercode`, `/deviceauth/token`, and
+  `https://auth.openai.com/codex/device` — the optional device-code sign-in flow.
 - `https://chatgpt.com/backend-api/wham/usage` — the usage endpoint Codex CLI reads its own
   `/status` limits from. The app sends only the bearer token; the response carries the account's
   rate-limit windows.
 
-No Codex traffic happens unless you add a Codex account — and as of 0.6.1 Codex accounts
-cannot be added at all, so none of it runs.
+No Codex traffic happens unless you choose Codex while adding or reconnecting an account.
 
 ## Where your data lives
 

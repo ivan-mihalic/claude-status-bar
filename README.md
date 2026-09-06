@@ -1,8 +1,8 @@
 # Claude Status Bar
 
-A native macOS **menu-bar app that tracks Claude subscription usage (Pro/Max) across
-multiple accounts at once** — the same numbers the Claude Code CLI `/usage` command shows,
-but for every account you connect, always visible in your menu bar.
+A native macOS **menu-bar app that tracks Claude and Codex subscription usage across
+multiple accounts at once** — the same limit windows their coding clients show, but for every
+account you connect, always visible in your menu bar.
 
 - **Multi-account.** Connect as many Claude accounts as you like; each is authenticated by
   the app's **own independent** browser OAuth login.
@@ -33,8 +33,8 @@ but for every account you connect, always visible in your menu bar.
 
 > **Status:** functional; **signed with a Developer ID Application certificate, Hardened
 > Runtime, notarized and stapled** by Apple — see [`SECURITY.md`](SECURITY.md) for how to
-> verify that yourself. Data comes from an **undocumented, reverse-engineered** Anthropic
-> endpoint (`/api/oauth/usage`) — it works today but Anthropic could change it at any time.
+> verify that yourself. Usage data comes from **undocumented, reverse-engineered** Anthropic
+> and ChatGPT endpoints — they work today but either provider could change them at any time.
 > You monitor **your own** accounts at your own risk.
 
 ---
@@ -71,18 +71,18 @@ full signing/sandbox/network/data-storage rundown.
 | Service | Sign-in | What you see |
 |---|---|---|
 | **Claude** | browser, then paste the code shown on the callback page | session, weekly and per-model windows |
-| **Codex** (ChatGPT plan) | *disabled for now* | the sign-in did not complete reliably; the rest of the Codex support is built and will return once that is fixed |
+| **Codex** (ChatGPT plan) | browser callback or device code | 5-hour and weekly Codex windows |
 | **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
 
-Only **Claude** accounts can be added today. Codex support (usage client, token handling and a
-loopback listener for its fixed `http://localhost:1455/auth/callback` redirect) is implemented and
-tested, but the sign-in is switched off until the browser round-trip works end to end.
+Claude and Codex accounts are independent: each OAuth grant is stored under its own account in
+the Keychain. Codex browser sign-in uses a short-lived listener at
+`http://localhost:1455/auth/callback`; device-code sign-in needs no incoming connection.
 
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
-2. Click **Sign in with Claude…** → a browser opens → sign in.
-3. Copy the authorization **code** shown on the callback page, paste it into the app, and
-   click **Connect**. Approve any Keychain prompt.
+2. Choose **Claude** or **Codex**. For Codex, also choose **Browser** or **Device code**.
+3. Complete the provider's sign-in. Claude asks you to paste its authorization code; Codex
+   returns automatically from the browser or shows a one-time device code. Approve any Keychain prompt.
 4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.
 
@@ -92,7 +92,7 @@ that open the app's **single window**. That window has a sidebar; only **one win
 open**, and every action lives in it (you never need the popover for anything):
 
 - **Dashboard** — one full-width tile per account, stacked top to bottom: large usage bars,
-  reset day/date/time, per-account **Name**, **Menu label**
+  reset day/date/time, per-account **Name**, **Menu label**, **ring colour**
   (prefix), **sync interval**, a **"Synced N min ago"** button (click to sync that account now),
   **▲ / ▼ chevrons** in each tile's header to reorder accounts (the order is remembered and is
   also the order used in the popover and the menu-bar label), and remove / **Sign in again**
@@ -167,8 +167,8 @@ Sparkle verifies that signature before installing anything.
 ## Privacy & security
 
 - The app runs under the **full App Sandbox**, with only four entitlements declared (the
-  sandbox itself, outgoing network client, one loopback listener used solely by the — currently
-  disabled — Codex sign-in, and Sparkle's own scoped XPC access) and **no file-access
+  sandbox itself, outgoing network client, one loopback listener used solely by Codex browser
+  sign-in, and Sparkle's own scoped XPC access) and **no file-access
   entitlement of any kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
@@ -178,9 +178,9 @@ Sparkle verifies that signature before installing anything.
   app's **own window**, so the app is told when the pointer is over its panel and nothing else.
   It installs **no system-wide event monitor** and never sees pointer or keyboard activity
   elsewhere on your Mac.
-- The app talks only to `claude.ai` (login), the OAuth token host,
-  `api.anthropic.com/api/oauth/usage` (read-only usage polling), and its own Sparkle update
-  host (`ivan-mihalic.github.io`, GitHub Pages appcast/download).
+- The app talks only to the selected provider's login, token and usage hosts, and its own
+  Sparkle update host (`ivan-mihalic.github.io`, GitHub Pages appcast/download). The exact
+  endpoints are listed in [`SECURITY.md`](SECURITY.md#network-endpoints-contacted).
 
 See [`SECURITY.md`](SECURITY.md) for the full breakdown — signing/notarization verification
 commands, the exact entitlements and why each exists, every network endpoint contacted, and

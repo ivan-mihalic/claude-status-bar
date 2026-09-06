@@ -1,5 +1,6 @@
 // Sources/ClaudeStatusBarApp/Notch/UsageRingView.swift
 import SwiftUI
+import ClaudeStatusBarCore
 
 /// One account, as two concentric arcs: the outer is the worst weekly window, the inner is
 /// the current session. No number is drawn here — the figures live in the popover, next to
@@ -12,7 +13,11 @@ public struct UsageRingView: View {
         self.model = model; self.diameter = diameter
     }
 
-    private static func tint(_ percent: Double?) -> Color {
+    private func tint(_ percent: Double?) -> Color {
+        if let selected = model.ringColor, percent != nil {
+            return Color(red: selected.red, green: selected.green, blue: selected.blue,
+                         opacity: selected.opacity)
+        }
         switch MenuBarIndicator.level(maxUtilization: percent) {
         case .ok:       return .green
         case .warn:     return .yellow
@@ -46,7 +51,7 @@ public struct UsageRingView: View {
             Circle().stroke(Color.white.opacity(0.16), lineWidth: width)
             Circle()
                 .trim(from: 0, to: min(max((percent ?? 0) / 100, 0), 1))
-                .stroke(Self.tint(percent), style: StrokeStyle(lineWidth: width, lineCap: .round))
+                .stroke(tint(percent), style: StrokeStyle(lineWidth: width, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .padding(inset)
@@ -63,7 +68,7 @@ public struct UsageRingView: View {
         if let badgeSymbol {
             Image(systemName: badgeSymbol)
                 .animatableFont(size: diameter * 0.26, weight: .semibold)
-                .foregroundStyle(Self.tint(model.weekPercent))
+                .foregroundStyle(tint(model.weekPercent))
         } else if let prefix = model.prefix {
             Text(prefix)
                 .animatableFont(size: diameter * 0.30, weight: .bold, design: .rounded)

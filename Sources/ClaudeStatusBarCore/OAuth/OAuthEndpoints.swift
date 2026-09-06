@@ -24,7 +24,7 @@ public struct OAuthEndpoints: Sendable {
 
     public func authorizeURL(config: OAuthConfig, pkce: PKCE, state: String) -> URL {
         var comps = URLComponents(url: authorizeBase, resolvingAgainstBaseURL: false)!
-        comps.queryItems = [
+        var items: [URLQueryItem] = [
             .init(name: "response_type", value: "code"),
             .init(name: "client_id", value: config.clientID),
             .init(name: "redirect_uri", value: config.redirectURI),
@@ -33,6 +33,9 @@ public struct OAuthEndpoints: Sendable {
             .init(name: "code_challenge_method", value: "S256"),
             .init(name: "state", value: state),
         ]
+        items.append(contentsOf: config.authorizeParameters.sorted(by: { $0.key < $1.key })
+            .map { URLQueryItem(name: $0.key, value: $0.value) })
+        comps.queryItems = items
         return comps.url!
     }
 }

@@ -70,11 +70,9 @@ private let path = "/auth/callback"
 
 // MARK: What is actually on offer
 
-@Test func onlyClaudeIsOfferedRightNow() {
-    // Codex sign-in is disabled after it failed to complete in practice. Pinned here so
-    // re-enabling it is a deliberate edit with a test to update, not a silent flip.
-    #expect(Provider.selectableCases == [.claude])
-    #expect(Provider.codex.isSupported == false)
+@Test func claudeAndCodexAreOffered() {
+    #expect(Provider.selectableCases == [.claude, .codex])
+    #expect(Provider.codex.isSupported)
     #expect(Provider.cursor.isSupported == false)
     // Every disabled provider must be able to say why; a greyed-out row with no reason is
     // indistinguishable from a bug.
@@ -83,9 +81,7 @@ private let path = "/auth/callback"
     }
 }
 
-@Test func theCodexPathIsStillWiredUnderneath() {
-    // The claim in Provider.swift is that re-enabling Codex is one value, not a rewrite.
-    // These are the pieces that would have to exist for that to be true.
+@Test func theCodexPathIsWired() {
     #expect(OAuthConfig.codex.clientID.isEmpty == false)
     #expect(OAuthEndpoints.openAI.tokenHosts.isEmpty == false)
     #expect(LoopbackCallbackServer(redirectURI: OAuthConfig.codex.redirectURI) != nil)

@@ -88,10 +88,11 @@ public actor LoopbackCallbackServer {
     }
 
     /// Starts listening and resolves with the first valid callback. Always stops itself.
-    public func waitForCallback(timeout: TimeInterval = 300) async throws -> Callback {
+    public func waitForCallback(timeout: TimeInterval = 300,
+                                onReady: @escaping @Sendable () -> Void = {}) async throws -> Callback {
         defer { stop() }
         return try await withThrowingTaskGroup(of: Callback.self) { group in
-            group.addTask { try await self.listen() }
+            group.addTask { try await self.listen(onReady: onReady) }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 throw Failure.timedOut
@@ -102,7 +103,7 @@ public actor LoopbackCallbackServer {
         }
     }
 
-    private func listen() async throws -> Callback {
+    private func listen(onReady: @escaping @Sendable () -> Void) async throws -> Callback {
         let params = NWParameters.tcp
         // Loopback only. A listener reachable from the network would be a far bigger promise
         // than "catch my own browser redirect".
@@ -121,7 +122,9 @@ public actor LoopbackCallbackServer {
         let expectedPath = path
         return try await withCheckedThrowingContinuation { continuation in
             let box = ContinuationBox(continuation)
+            let ready = Once(action: onReady)
             listener.stateUpdateHandler = { state in
+                if case .ready = state { ready.run() }
                 if case .failed = state { box.resume(throwing: Failure.portUnavailable(self.port)) }
             }
             listener.newConnectionHandler = { connection in
@@ -178,5 +181,17 @@ private final class ContinuationBox: @unchecked Sendable {
     func resume(throwing error: Error) {
         lock.lock(); let c = continuation; continuation = nil; lock.unlock()
         c?.resume(throwing: error)
+    }
+}
+
+private final class Once: @unchecked Sendable {
+    private var action: (@Sendable () -> Void)?
+    private let lock = NSLock()
+
+    init(action: @escaping @Sendable () -> Void) { self.action = action }
+
+    func run() {
+        lock.lock(); let action = action; self.action = nil; lock.unlock()
+        action?()
     }
 }

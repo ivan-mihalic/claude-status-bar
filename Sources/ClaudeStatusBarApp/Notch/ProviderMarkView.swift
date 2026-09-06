@@ -37,9 +37,32 @@ public struct ProviderMarkView: View {
     @ViewBuilder private var mark: some View {
         switch provider {
         case .claude: Burst(spokes: 8).stroke(tint, lineWidth: max(diameter * 0.07, 1))
-        case .codex:  Circle().strokeBorder(tint, lineWidth: max(diameter * 0.09, 1))
+        case .codex:  CodexKnot(tint: tint, lineWidth: max(diameter * 0.065, 0.8))
         case .cursor: Cube().stroke(tint, style: StrokeStyle(lineWidth: max(diameter * 0.07, 1),
                                                              lineJoin: .round))
+        }
+    }
+}
+
+/// A compact six-lobed knot inspired by the Codex/OpenAI mark. It stays legible at the
+/// 11-point size used on a collapsed ring, where a plain outline circle did not identify it.
+private struct CodexKnot: View {
+    let tint: Color
+    let lineWidth: CGFloat
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            ZStack {
+                ForEach(0..<6, id: \.self) { index in
+                    Capsule()
+                        .stroke(tint, lineWidth: lineWidth)
+                        .frame(width: size * 0.38, height: size * 0.72)
+                        .offset(y: -size * 0.10)
+                        .rotationEffect(.degrees(Double(index) * 60))
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 }

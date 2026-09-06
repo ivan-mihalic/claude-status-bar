@@ -2,12 +2,23 @@
 import SwiftUI
 import ClaudeStatusBarCore
 
+private enum CodexLoginMethod: String, CaseIterable, Identifiable {
+    case browser
+    case deviceCode
+
+    var id: String { rawValue }
+    var title: String { self == .browser ? "Browser" : "Device code" }
+}
+
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var provider: Provider = .claude
+    @State private var codexLoginMethod: CodexLoginMethod = .browser
     @State private var pending: PendingLogin?
+    @State private var deviceLogin: DeviceCodeLogin?
+    @State private var loginTask: Task<Void, Never>?
     @State private var code = ""
     @State private var label = ""
     @State private var error: String?
@@ -28,19 +39,54 @@ public struct AddAccountView: View {
                 Text("Reconnecting “\(acct.label)”. Its name, menu label, interval and "
                      + "position stay as they are — only the expired credentials are replaced.")
                     .font(.caption).foregroundStyle(.secondary)
+                if acct.effectiveProvider == .codex {
+                    Picker("Sign in using", selection: $codexLoginMethod) {
+                        ForEach(CodexLoginMethod.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: codexLoginMethod) { _, _ in resetLogin() }
+                }
             } else {
                 Text("Add an account").font(.title3.bold())
-                // Only one service can be signed in to today, so a one-row picker would be
-                // furniture. It comes back on its own the moment a second one is enabled.
                 if Provider.selectableCases.count > 1 {
                     Picker("Service", selection: $provider) {
-                        ForEach(Provider.selectableCases) { Text($0.title).tag($0) }
+                        ForEach(Provider.selectableCases) { item in
+                            HStack {
+                                ProviderMarkView(provider: item, diameter: 16)
+                                Text(item.title)
+                            }.tag(item)
+                        }
                     }
-                    .onChange(of: provider) { _, _ in pending = nil; code = ""; error = nil }
+                    .onChange(of: provider) { _, _ in resetLogin() }
                 }
                 TextField("Label (email)", text: $label)
+                if provider == .codex {
+                    Picker("Sign in using", selection: $codexLoginMethod) {
+                        ForEach(CodexLoginMethod.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: codexLoginMethod) { _, _ in resetLogin() }
+                    Text(codexLoginMethod == .browser
+                         ? "ChatGPT opens in your browser and returns here automatically."
+                         : "OpenAI shows a one-time code to enter in your browser. Device-code login must be enabled in your ChatGPT security settings.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
-            if pending == nil {
+            if let deviceLogin {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Enter this one-time code:").font(.caption).foregroundStyle(.secondary)
+                    Text(deviceLogin.userCode)
+                        .font(.system(.title2, design: .monospaced).bold())
+                        .textSelection(.enabled)
+                    Link("Open ChatGPT sign-in page", destination: deviceLogin.verificationURL)
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Waiting for authorization…")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button("Cancel") { resetLogin() }
+                }
+            } else if pending == nil {
                 Button("Sign in with \(provider.title)…") { start() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!provider.isSupported || connecting)
@@ -59,12 +105,13 @@ public struct AddAccountView: View {
                     Text("Waiting for the browser to finish signing in…")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Button("Cancel") { pending = nil; error = nil }
+                Button("Cancel") { resetLogin() }
             }
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
         }
         .padding(20).frame(width: 380)
-        .onAppear { pending = nil; code = ""; error = nil }
+        .onAppear { resetLogin() }
+        .onDisappear { loginTask?.cancel() }
     }
 
     /// Anthropic shows the code on a web page; Codex redirects to a loopback address the app
@@ -76,6 +123,11 @@ public struct AddAccountView: View {
     private func start() {
         error = nil
         let target = reauthAccount?.effectiveProvider ?? provider
+        if target == .codex, codexLoginMethod == .deviceCode {
+            connecting = true
+            loginTask = Task { await connectDeviceCode(provider: target) }
+            return
+        }
         guard let started = env.accountManager.beginLogin(provider: target) else {
             error = target.unsupportedReason ?? "\(target.title) sign-in isn't available."
             return
@@ -83,7 +135,32 @@ public struct AddAccountView: View {
         pending = started
         // Read the provider off the pending login rather than the @State picker: for a
         // re-sign-in the picker isn't even shown, and it would still say "Claude".
-        if started.provider != .claude { Task { await connect() } }
+        if started.provider != .claude {
+            loginTask = Task { await connect() }
+        }
+    }
+
+    @MainActor
+    private func connectDeviceCode(provider: Provider) async {
+        defer { connecting = false; loginTask = nil }
+        do {
+            let login = try await env.accountManager.beginDeviceCode(provider: provider)
+            try Task.checkCancellation()
+            deviceLogin = login
+            let name = label.isEmpty ? "\(provider.title) account" : label
+            if let acct = reauthAccount {
+                try await env.accountManager.reauth(acct.id, deviceLogin: login, provider: provider)
+            } else {
+                _ = try await env.accountManager.finishAdd(login, provider: provider,
+                                                           label: name, interval: defaultInterval)
+            }
+            finishSuccessfully()
+        } catch is CancellationError {
+            // The Cancel button already returned the form to its initial state.
+        } catch {
+            deviceLogin = nil
+            self.error = Redaction.redact(error.localizedDescription)
+        }
     }
 
     private func connect() async {
@@ -104,9 +181,20 @@ public struct AddAccountView: View {
                 _ = try await env.accountManager.finishAdd(pending, label: name,
                                                            interval: defaultInterval)
             }
-            env.syncCoordinator.start()   // (re)start loops incl. the new/refreshed account
-            self.pending = nil; code = ""; label = ""; error = nil
-            router.show(.dashboard)       // back to the overview in the same window
-        } catch { self.error = Redaction.redact("\(error)") }
+            finishSuccessfully()
+        } catch { self.error = Redaction.redact(error.localizedDescription) }
+    }
+
+    @MainActor
+    private func finishSuccessfully() {
+        env.syncCoordinator.start()
+        loginTask = nil; pending = nil; deviceLogin = nil
+        code = ""; label = ""; error = nil
+        router.show(.dashboard)
+    }
+
+    private func resetLogin() {
+        loginTask?.cancel(); loginTask = nil
+        pending = nil; deviceLogin = nil; code = ""; error = nil; connecting = false
     }
 }
