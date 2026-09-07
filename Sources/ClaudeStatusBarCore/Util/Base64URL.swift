@@ -8,4 +8,12 @@ public enum Base64URL {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
+
+    public static func decode(_ string: String) -> Data? {
+        var value = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        value += String(repeating: "=", count: (4 - value.count % 4) % 4)
+        return Data(base64Encoded: value)
+    }
 }

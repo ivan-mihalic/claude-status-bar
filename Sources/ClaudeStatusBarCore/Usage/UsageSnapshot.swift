@@ -13,22 +13,24 @@ public struct UsageWindow: Codable, Equatable, Sendable {
 }
 
 public struct UsageSnapshot: Codable, Equatable, Sendable {
-    public let session: UsageWindow
-    public let weekAll: UsageWindow
+    /// Providers can expose either, both, or neither named window. Claude always supplies
+    /// both; Codex legitimately returns only a weekly window for some subscriptions.
+    public let session: UsageWindow?
+    public let weekAll: UsageWindow?
     public let weekPremium: [UsageWindow]
     public let fetchedAt: Date
-    public init(session: UsageWindow, weekAll: UsageWindow,
+    public init(session: UsageWindow?, weekAll: UsageWindow?,
                 weekPremium: [UsageWindow], fetchedAt: Date) {
         self.session = session; self.weekAll = weekAll
         self.weekPremium = weekPremium; self.fetchedAt = fetchedAt
     }
 
-    public var allWindows: [UsageWindow] { [session, weekAll] + weekPremium }
+    public var allWindows: [UsageWindow] { [session, weekAll].compactMap { $0 } + weekPremium }
 
     /// Worst window, without building the array. `allWindows` allocates on every call, and
     /// this question gets asked on paths that run per pointer move and per sync.
     public var maxUtilization: Double {
-        var worst = max(session.utilization, weekAll.utilization)
+        var worst = max(session?.utilization ?? 0, weekAll?.utilization ?? 0)
         for window in weekPremium { worst = max(worst, window.utilization) }
         return worst
     }

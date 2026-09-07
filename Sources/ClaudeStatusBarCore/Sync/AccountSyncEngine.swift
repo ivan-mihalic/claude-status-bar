@@ -75,16 +75,14 @@ public struct AccountSyncEngine {
         }
         // Fetch usage; on 401 — and only on 401 — try exactly one reactive refresh.
         do {
-            let snap = try await usage.fetch(accessToken: bundle.accessToken,
-                                             now: clock.now())
+            let snap = try await usage.fetch(tokens: bundle, now: clock.now())
             return .success(snap)
         } catch let e as UsageAPIError {
             if case .unauthorized = e {
                 switch await refresh(bundle, for: accountID, tokens: tokens) {
                 case .refreshed(let refreshed):
                     do {
-                        let snap = try await usage.fetch(
-                            accessToken: refreshed.accessToken, now: clock.now())
+                        let snap = try await usage.fetch(tokens: refreshed, now: clock.now())
                         return .success(snap)
                     } catch let retryError {
                         // A fresh token that still can't read usage is only a sign-in

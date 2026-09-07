@@ -35,7 +35,7 @@ private func coord(_ http: MockHTTPClient, _ state: AppState, _ store: TokenStor
     let c = coord(http, state, store, clock, tmp)
     await c.syncNow(id)
     #expect(state.accounts.first?.status == .ok)
-    #expect(state.accounts.first?.lastSnapshot?.session.utilization == 33.0)
+    #expect(state.accounts.first?.lastSnapshot?.session?.utilization == 33.0)
 }
 
 @Test @MainActor func syncNow_accountRemovedMidSync_doesNotResurrectIt() async throws {

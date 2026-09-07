@@ -178,7 +178,7 @@ public final class NotchWindowController {
         for account in env.appState.accounts where account.isShownInNotch {
             if seen == index {
                 guard let snapshot = account.lastSnapshot else { return 1 }
-                return max(2 + snapshot.weekPremium.count, 1)
+                return max(snapshot.allWindows.count, 1)
             }
             seen += 1
         }

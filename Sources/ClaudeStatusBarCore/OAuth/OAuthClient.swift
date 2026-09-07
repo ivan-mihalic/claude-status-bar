@@ -28,7 +28,7 @@ public struct OAuthClient: Sendable {
 
     public func exchange(code: String, verifier: String, redirectURI: String,
                          state: String? = nil) async throws -> TokenBundle {
-        try await perform(previousRefreshToken: "") { host in
+        try await perform(previousRefreshToken: "", previousAccountID: nil) { host in
             OAuthRequests.exchange(tokenURL: host, config: config,
                                    code: code, verifier: verifier, state: state,
                                    redirectURI: redirectURI)
@@ -36,13 +36,14 @@ public struct OAuthClient: Sendable {
     }
 
     public func refresh(_ bundle: TokenBundle) async throws -> TokenBundle {
-        try await perform(previousRefreshToken: bundle.refreshToken) { host in
+        try await perform(previousRefreshToken: bundle.refreshToken,
+                          previousAccountID: bundle.accountID) { host in
             OAuthRequests.refresh(tokenURL: host, config: config,
                                   refreshToken: bundle.refreshToken)
         }
     }
 
-    private func perform(previousRefreshToken: String,
+    private func perform(previousRefreshToken: String, previousAccountID: String?,
                          _ build: (URL) -> URLRequest) async throws -> TokenBundle {
         var lastError: OAuthError = .allHostsFailed
         for host in endpoints.tokenHosts {
@@ -54,7 +55,8 @@ public struct OAuthClient: Sendable {
             case 200:
                 do {
                     let tr = try JSONDecoder().decode(TokenResponse.self, from: resp.body)
-                    return tr.bundle(now: clock.now(), previousRefreshToken: previousRefreshToken)
+                    return tr.bundle(now: clock.now(), previousRefreshToken: previousRefreshToken,
+                                     previousAccountID: previousAccountID)
                 } catch { throw OAuthError.decoding }
             case 400:
                 // RFC 6749 §5.2 puts `invalid_request`, `invalid_client` and

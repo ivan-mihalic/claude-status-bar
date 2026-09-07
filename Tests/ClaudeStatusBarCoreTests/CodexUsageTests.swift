@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import ClaudeStatusBarCore
+import TestSupport
 
 private func codexFixture() throws -> Data {
     let url = try #require(Bundle.module.url(forResource: "codex_usage", withExtension: "json",
@@ -9,6 +10,21 @@ private func codexFixture() throws -> Data {
 }
 
 private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
+
+private func jwt(accountID: String) -> String {
+    let payload = Data(#"{"https://api.openai.com/auth":{"chatgpt_account_id":"\#(accountID)"}}"#.utf8)
+    return "header.\(Base64URL.encode(payload)).signature"
+}
+
+@Test func codex_usage_routesTheRequestToTheAccountInTheAccessToken() async throws {
+    let http = MockHTTPClient { request in
+        #expect(request.value(forHTTPHeaderField: "ChatGPT-Account-Id") == "account-123")
+        return HTTPResponse(status: 200, headers: [:], body: try codexFixture())
+    }
+    let client = CodexUsageAPIClient(http: http)
+
+    _ = try await client.fetch(accessToken: jwt(accountID: "account-123"), now: fetchedAt)
+}
 
 @Test func codex_decodesTheLiveResponseShape() throws {
     // The fixture is a real 200 from /backend-api/wham/usage with its identifiers redacted,
@@ -23,8 +39,8 @@ private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
 @Test func codex_normalizesIntoTheSameSnapshotEveryOtherViewAlreadySpeaks() throws {
     let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: codexFixture())
     let snap = try CodexUsageAdapter.normalize(dto, fetchedAt: fetchedAt)
-    #expect(snap.session.key == "five_hour")
-    #expect(snap.weekAll.key == "seven_day")
+    #expect(snap.session?.key == "five_hour")
+    #expect(snap.weekAll?.key == "seven_day")
     // Codex reports no per-model weekly allowance, so there is nothing to invent here.
     #expect(snap.weekPremium.isEmpty)
     #expect(snap.fetchedAt == fetchedAt)
@@ -42,8 +58,8 @@ private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
     """
     let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: Data(json.utf8))
     let snap = try CodexUsageAdapter.normalize(dto, fetchedAt: fetchedAt)
-    #expect(snap.session.resetsAt == Date(timeIntervalSince1970: 1_788_195_574))
-    #expect(snap.weekAll.resetsAt == Date(timeIntervalSince1970: 1_788_782_374))
+    #expect(snap.session?.resetsAt == Date(timeIntervalSince1970: 1_788_195_574))
+    #expect(snap.weekAll?.resetsAt == Date(timeIntervalSince1970: 1_788_782_374))
 }
 
 @Test func codex_fallsBackToTheCountdownWhenNoAbsoluteResetIsSent() throws {
@@ -54,13 +70,13 @@ private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
     """
     let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: Data(json.utf8))
     let snap = try CodexUsageAdapter.normalize(dto, fetchedAt: fetchedAt)
-    #expect(snap.session.resetsAt == fetchedAt.addingTimeInterval(900))
+    #expect(snap.session?.resetsAt == fetchedAt.addingTimeInterval(900))
     // No countdown either: fall back to the window's own length rather than "now".
-    #expect(snap.weekAll.resetsAt == fetchedAt.addingTimeInterval(604_800))
+    #expect(snap.weekAll?.resetsAt == fetchedAt.addingTimeInterval(604_800))
 }
 
-@Test func codex_refusesAPayloadWithoutBothWindows() throws {
-    // A half-filled snapshot would render as a confident 0%, which is worse than an error.
+@Test func codex_refusesAPayloadWithoutAnyWindow() throws {
+    // An empty snapshot would render as a confident 0%, which is worse than an error.
     let json = #"{"plan_type":"plus","rate_limit":{"primary_window":null,"secondary_window":null}}"#
     let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: Data(json.utf8))
     #expect(throws: UsageAdapterError.missingCoreWindows) {
@@ -72,6 +88,20 @@ private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
     }
 }
 
+@Test func codex_keepsAValidSingleWeeklyWindow() throws {
+    let json = """
+    {"rate_limit":{"primary_window":{"used_percent":27,"limit_window_seconds":604800,
+                                        "reset_after_seconds":3600},
+                   "secondary_window":null}}
+    """
+    let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: Data(json.utf8))
+    let snap = try CodexUsageAdapter.normalize(dto, fetchedAt: fetchedAt)
+
+    #expect(snap.allWindows.count == 1)
+    #expect(snap.allWindows.first?.key == "seven_day")
+    #expect(snap.allWindows.first?.utilization == 27)
+}
+
 @Test func codex_clampsNonsensePercentages() throws {
     let json = """
     {"rate_limit":{"primary_window":{"used_percent":140,"limit_window_seconds":18000},
@@ -79,8 +109,8 @@ private let fetchedAt = Date(timeIntervalSince1970: 1_788_177_574)
     """
     let dto = try JSONDecoder().decode(CodexUsageDTO.self, from: Data(json.utf8))
     let snap = try CodexUsageAdapter.normalize(dto, fetchedAt: fetchedAt)
-    #expect(snap.session.utilization == 100)
-    #expect(snap.weekAll.utilization == 0)
+    #expect(snap.session?.utilization == 100)
+    #expect(snap.weekAll?.utilization == 0)
 }
 
 @Test func codex_labelsAnUnfamiliarWindowByItsLengthInsteadOfGuessing() {

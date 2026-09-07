@@ -67,12 +67,17 @@ private struct AccountEditFields: View {
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @State private var name: String
     @State private var prefix: String
+    @State private var ringColour: Color
+    @State private var usesCustomRingColour: Bool
 
     init(account: Account, manager: AccountManager) {
         self.account = account
         self.manager = manager
         _name = State(initialValue: account.label)
         _prefix = State(initialValue: account.menuBarPrefix ?? "")
+        _ringColour = State(initialValue: Color(
+            account.ringColor ?? AccountRingColor.suggested(for: account.effectiveProvider)))
+        _usesCustomRingColour = State(initialValue: account.ringColor != nil)
     }
 
     var body: some View {
@@ -100,24 +105,28 @@ private struct AccountEditFields: View {
                             + "overall number.")
             }
             HStack(spacing: 8) {
-                ColorPicker("Ring colour", selection: Binding(
-                    get: { Color(account.ringColor
-                                 ?? AccountRingColor.suggested(for: account.effectiveProvider)) },
-                    set: { manager.setRingColor(account.id, AccountRingColor($0)) }),
-                            supportsOpacity: false)
+                Toggle("Custom ring colour", isOn: $usesCustomRingColour)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                     .font(.caption)
                     .fixedSize()
-                if account.ringColor != nil {
-                    Button("Use automatic warning colours") {
-                        manager.setRingColor(account.id, nil)
+                    .onChange(of: usesCustomRingColour) { _, enabled in
+                        manager.setRingColor(account.id,
+                            enabled ? AccountRingColor(ringColour) : nil)
                     }
-                    .buttonStyle(.link)
+                ColorPicker("Ring colour", selection: $ringColour, supportsOpacity: false)
+                    .labelsHidden()
+                    .disabled(!usesCustomRingColour)
+                    .onChange(of: ringColour) { _, colour in
+                        guard usesCustomRingColour else { return }
+                        manager.setRingColor(account.id, AccountRingColor(colour))
+                    }
+                    .help("Choose the colour used for both arcs of this account's notch ring")
+                Text(usesCustomRingColour
+                     ? "This colour is used for both arcs of this account's notch ring."
+                     : "Automatic colours change from green to yellow and red with usage.")
+                    .foregroundStyle(.secondary)
                     .font(.caption)
-                }
-                Text(account.ringColor == nil
-                     ? "Automatic changes from green to yellow and red with usage."
-                     : "This colour is used for both arcs of this account's notch ring.")
-                    .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }

@@ -46,7 +46,7 @@ private final class Counter { var n = 0 }
         Issue.record("unexpected: \(out)")
         return
     }
-    #expect(snap.session.utilization == 33.0)
+    #expect(snap.session?.utilization == 33.0)
 }
 
 @Test func test_expiringToken_refreshesThenFetches() async throws {
@@ -113,7 +113,7 @@ private final class Counter { var n = 0 }
         Issue.record("unexpected: \(out)")
         return
     }
-    #expect(snap.session.utilization == 33.0)
+    #expect(snap.session?.utilization == 33.0)
     #expect(try store.load(id)?.accessToken == "NEW") // reactive refresh persisted
 }
 

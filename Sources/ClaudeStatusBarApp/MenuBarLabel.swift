@@ -23,8 +23,8 @@ public enum MenuBarLabel {
         guard let s = a.lastSnapshot else {
             return prefix.isEmpty ? "…" : "\(prefix) …"
         }
-        var nums = [pct(s.session.utilization), pct(s.weekAll.utilization)]
-        if let p = s.weekPremium.first { nums.append(pct(p.utilization)) }
+        let visible = [s.session, s.weekAll].compactMap { $0 } + s.weekPremium.prefix(1)
+        let nums = visible.map { pct($0.utilization) }
         let numStr = nums.joined(separator: "/")
         return prefix.isEmpty ? numStr : "\(prefix) \(numStr)"
     }

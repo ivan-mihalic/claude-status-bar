@@ -58,10 +58,10 @@ public enum NotchModel {
         let snap = account.lastSnapshot
         // Outer and inner must be *different* numbers or the second ring says nothing:
         // outer is the weekly picture, inner is the session.
-        let week = snap.map { s in
-            ([s.weekAll.utilization] + s.weekPremium.map(\.utilization)).max() ?? 0
+        let week = snap.flatMap { s in
+            ([s.weekAll?.utilization].compactMap { $0 } + s.weekPremium.map(\.utilization)).max()
         }
-        let session = snap?.session.utilization
+        let session = snap?.session?.utilization
         let worst = snap.map(\.maxUtilization)
         let prefix = account.menuBarPrefix?.trimmingCharacters(in: .whitespaces)
 

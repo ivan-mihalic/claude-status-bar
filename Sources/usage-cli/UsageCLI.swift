@@ -16,9 +16,7 @@ func line(_ w: UsageWindow) -> String {
 
 func printSnapshot(_ label: String, _ s: UsageSnapshot) {
     print("Account: \(label)")
-    print(line(s.session))
-    print(line(s.weekAll))
-    for p in s.weekPremium { print(line(p)) }
+    for window in s.allWindows { print(line(window)) }
     print("")
 }
 

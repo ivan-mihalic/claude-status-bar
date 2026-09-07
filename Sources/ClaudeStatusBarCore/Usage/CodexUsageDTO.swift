@@ -44,9 +44,9 @@ public struct CodexUsageDTO: Decodable, Sendable {
 }
 
 public enum CodexUsageAdapter {
-    /// Codex reports two windows and names them only by position, so the labels come from
-    /// their length: 18 000 s is the 5-hour session, 604 800 s the week. Anything else is
-    /// labelled by its own duration rather than guessed at.
+    /// Codex can report one or two windows and names them only by position, so the labels
+    /// come from their length: 18 000 s is the 5-hour session, 604 800 s the week. Anything
+    /// else is labelled by its own duration rather than guessed at.
     public static func label(forWindowSeconds seconds: Int) -> String {
         switch seconds {
         case 18_000:  return "Session"
@@ -66,14 +66,18 @@ public enum CodexUsageAdapter {
     }
 
     public static func normalize(_ dto: CodexUsageDTO, fetchedAt: Date) throws -> UsageSnapshot {
-        guard let primary = dto.rateLimit?.primaryWindow,
-              let secondary = dto.rateLimit?.secondaryWindow else {
+        let available = [dto.rateLimit?.primaryWindow, dto.rateLimit?.secondaryWindow]
+            .compactMap { $0 }
+        guard !available.isEmpty else {
             throw UsageAdapterError.missingCoreWindows
         }
-        return UsageSnapshot(session: window(primary, now: fetchedAt),
-                             weekAll: window(secondary, now: fetchedAt),
-                             // Codex has no per-model weekly allowance to report.
-                             weekPremium: [],
+        let normalized = available.map { window($0, now: fetchedAt) }
+        let session = normalized.first { $0.key == "five_hour" }
+        let week = normalized.first { $0.key == "seven_day" }
+        let other = normalized.filter { $0.key != "five_hour" && $0.key != "seven_day" }
+        return UsageSnapshot(session: session,
+                             weekAll: week,
+                             weekPremium: other,
                              fetchedAt: fetchedAt)
     }
 

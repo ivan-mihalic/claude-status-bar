@@ -112,3 +112,16 @@ private let snapshot = UsageSnapshot(
     #expect(NotchModel.ring(for: coloured).ringColor == coloured.ringColor)
     #expect(NotchModel.ring(for: account(status: .ok, snapshot: snapshot)).ringColor == nil)
 }
+
+@Test func weeklyOnlyCodexUsage_fillsTheOuterRingWithoutInventingASession() {
+    let weekly = window(27, key: "seven_day", label: "Week")
+    var codex = account(status: .ok,
+        snapshot: UsageSnapshot(session: nil, weekAll: weekly,
+                                weekPremium: [], fetchedAt: Date()))
+    codex.provider = .codex
+
+    let ring = NotchModel.ring(for: codex)
+    #expect(ring.weekPercent == 27)
+    #expect(ring.sessionPercent == nil)
+    #expect(ring.windows == [weekly])
+}

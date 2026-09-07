@@ -72,8 +72,8 @@ public struct AccountRowView: View {
                 if let reorder { reorderButtons(reorder) }
             }
             if let snap = account.lastSnapshot {
-                UsageBarView(window: snap.session, now: now)
-                UsageBarView(window: snap.weekAll, now: now)
+                if let session = snap.session { UsageBarView(window: session, now: now) }
+                if let week = snap.weekAll { UsageBarView(window: week, now: now) }
                 if let premium = snap.weekPremium.first { UsageBarView(window: premium, now: now) }
             } else {
                 Text("No data yet").font(.caption).foregroundStyle(.secondary)

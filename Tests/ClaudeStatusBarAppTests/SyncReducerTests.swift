@@ -17,7 +17,7 @@ private func snap(_ s: Double) -> UsageSnapshot {
     let out = SyncReducer.reduce(SyncState(account: acct(), consecutiveRateLimits: 3),
                                  outcome: .success(snap(42)), now: now, backoff: .usage)
     #expect(out.account.status == .ok)
-    #expect(out.account.lastSnapshot?.session.utilization == 42)
+    #expect(out.account.lastSnapshot?.session?.utilization == 42)
     #expect(out.account.lastSyncedAt == now)
     #expect(out.consecutiveRateLimits == 0)
 }
@@ -66,7 +66,7 @@ private func snap(_ s: Double) -> UsageSnapshot {
     let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 4),
                                  outcome: .offline, now: Date(timeIntervalSince1970: 0), backoff: .usage)
     #expect(out.account.status == .offline)
-    #expect(out.account.lastSnapshot?.session.utilization == 50)
+    #expect(out.account.lastSnapshot?.session?.utilization == 50)
     #expect(out.consecutiveRateLimits == 0)
 }
 @Test func reduce_failed_setsOfflineAndKeepsSnapshot() {
@@ -75,13 +75,13 @@ private func snap(_ s: Double) -> UsageSnapshot {
     let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 4),
                                  outcome: .failed("decoding"), now: Date(timeIntervalSince1970: 0), backoff: .usage)
     #expect(out.account.status == .offline)
-    #expect(out.account.lastSnapshot?.session.utilization == 50)
+    #expect(out.account.lastSnapshot?.session?.utilization == 50)
 }
 @Test func reduce_rateLimited_keepsSnapshot() {
     let account = Account(id: UUID(), label: "a@x", accountUuid: nil, syncInterval: 300,
                            status: .never, lastSnapshot: snap(50), lastSyncedAt: nil)
     let out = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 0),
                                  outcome: .rateLimited(retryAfter: nil), now: Date(timeIntervalSince1970: 1000), backoff: .usage)
-    #expect(out.account.lastSnapshot?.session.utilization == 50)
+    #expect(out.account.lastSnapshot?.session?.utilization == 50)
     #expect(out.consecutiveRateLimits == 1)
 }

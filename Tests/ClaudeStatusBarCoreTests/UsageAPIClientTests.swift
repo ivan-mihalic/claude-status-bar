@@ -15,7 +15,7 @@ private func body(_ name: String) throws -> Data {
     let client = UsageAPIClient(http: http, userAgent: "claude-code/1.0.0")
     let snap = try await client.fetch(accessToken: "AT",
                                       now: .init(timeIntervalSince1970: 0))
-    #expect(snap.session.utilization == 33.0)
+    #expect(snap.session?.utilization == 33.0)
     let req = try #require(http.lastRequest)
     #expect(req.url?.absoluteString == "https://api.anthropic.com/api/oauth/usage")
     #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer AT")

@@ -121,3 +121,18 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
     #expect(try store.load(acct.id) == nil)
     #expect(try SnapshotStore(fileURL: tmp).load().isEmpty)
 }
+
+@Test @MainActor func setRingColor_updatesTheLiveAccountAndPersistsIt() async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let http = MockHTTPClient { _ in tokenResponse("AT") }
+    let (mgr, state) = makeManager(http, store: InMemoryTokenStore(), snapURL: tmp)
+    let account = try await mgr.finishAdd(mgr.beginLogin()!, code: "C", label: "x")
+    let colour = AccountRingColor(red: 0.7, green: 0.2, blue: 0.4)
+
+    mgr.setRingColor(account.id, colour)
+
+    #expect(state.accounts.first?.ringColor == colour)
+    #expect(try SnapshotStore(fileURL: tmp).load().first?.ringColor == colour)
+    #expect(NotchModel.ring(for: state.accounts[0]).ringColor == colour)
+}

@@ -7,10 +7,14 @@ import Foundation
 /// `UsageSnapshot`, so the dashboard, the menu bar and the notch never learn that a second
 /// service exists.
 public protocol UsageFetching: Sendable {
-    func fetch(accessToken: String, now: Date) async throws -> UsageSnapshot
+    func fetch(tokens: TokenBundle, now: Date) async throws -> UsageSnapshot
 }
 
-extension UsageAPIClient: UsageFetching {}
+extension UsageAPIClient: UsageFetching {
+    public func fetch(tokens: TokenBundle, now: Date) async throws -> UsageSnapshot {
+        try await fetch(accessToken: tokens.accessToken, now: now)
+    }
+}
 
 /// `GET https://chatgpt.com/backend-api/wham/usage` — the endpoint Codex CLI reads its own
 /// `/status` limits from. Verified live on 2026-08-31 (200 with a Plus account's windows);
@@ -26,12 +30,24 @@ public struct CodexUsageAPIClient: UsageFetching {
         self.http = http; self.userAgent = userAgent
     }
 
+    public func fetch(tokens: TokenBundle, now: Date) async throws -> UsageSnapshot {
+        try await fetch(accessToken: tokens.accessToken, accountID: tokens.accountID, now: now)
+    }
+
     public func fetch(accessToken: String, now: Date) async throws -> UsageSnapshot {
+        try await fetch(accessToken: accessToken, accountID: nil, now: now)
+    }
+
+    private func fetch(accessToken: String, accountID: String?,
+                       now: Date) async throws -> UsageSnapshot {
         var req = URLRequest(url: Self.endpoint)
         req.httpMethod = "GET"
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let accountID = accountID ?? ChatGPTTokenClaims.accountID(from: accessToken) {
+            req.setValue(accountID, forHTTPHeaderField: "ChatGPT-Account-Id")
+        }
 
         let resp = try await http.send(req)
         switch resp.status {
