@@ -115,8 +115,8 @@ covered by the same `network.client` entitlement.
 - `https://auth.openai.com/api/accounts/deviceauth/usercode`, `/deviceauth/token`, and
   `https://auth.openai.com/codex/device` — the optional device-code sign-in flow.
 - `https://chatgpt.com/backend-api/wham/usage` — the usage endpoint Codex CLI reads its own
-  `/status` limits from. The app sends only the bearer token; the response carries the account's
-  rate-limit windows.
+  `/status` limits from. The app sends the bearer token and the `ChatGPT-Account-Id` routing
+  value contained in that signed token; the response carries the account's rate-limit windows.
 
 No Codex traffic happens unless you choose Codex while adding or reconnecting an account.
 

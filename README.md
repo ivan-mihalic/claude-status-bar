@@ -4,14 +4,18 @@ A native macOS **menu-bar app that tracks Claude and Codex subscription usage ac
 multiple accounts at once** — the same limit windows their coding clients show, but for every
 account you connect, always visible in your menu bar.
 
-- **Multi-account.** Connect as many Claude accounts as you like; each is authenticated by
-  the app's **own independent** browser OAuth login.
-- **Three usage windows per account:** current 5-hour **session**, current **week (all
-  models)**, and current **week (premium model)** — each with a progress bar, percentage,
-  and reset countdown.
+- **Multi-account and multi-provider.** Connect as many Claude and Codex accounts as you
+  like. Every account has the app's **own independent** OAuth login; Codex supports either
+  a browser callback or a device code.
+- **The usage windows each provider actually reports.** Claude normally exposes a current
+  5-hour **session**, current **week (all models)**, and current **week (premium model)**.
+  Codex exposes its available 5-hour and/or weekly subscription limits. Every available
+  window gets a progress bar, percentage, and reset countdown.
 - **Menu-bar widget** with a color-coded gauge (green / amber / red by how close you are to
   a limit). Optionally show every account's percentages right in the menu bar, with a short
   per-account label.
+- **Per-account ring colours.** Keep automatic green / amber / red warning colours, or enable
+  a custom colour for an individual account's notch ring.
 - **One app window** with a sidebar — **Dashboard · Add Account · Settings · About** — so every
   action is reachable from any screen, not just the menu-bar popover. The Dashboard shows large
   bars, reset day/date/time, per-account controls, and a *"synced N min ago"* button to refresh
@@ -71,12 +75,15 @@ full signing/sandbox/network/data-storage rundown.
 | Service | Sign-in | What you see |
 |---|---|---|
 | **Claude** | browser, then paste the code shown on the callback page | session, weekly and per-model windows |
-| **Codex** (ChatGPT plan) | browser callback or device code | 5-hour and weekly Codex windows |
+| **Codex** (ChatGPT plan) | browser callback or device code | whichever 5-hour and/or weekly Codex windows the subscription reports |
 | **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
 
 Claude and Codex accounts are independent: each OAuth grant is stored under its own account in
 the Keychain. Codex browser sign-in uses a short-lived listener at
 `http://localhost:1455/auth/callback`; device-code sign-in needs no incoming connection.
+Codex usage requests are routed to the account or workspace identified by the signed OAuth
+token. Some subscriptions return only one active limit window; the app shows that window
+instead of treating the absent second window as a failed sync.
 
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
@@ -92,8 +99,9 @@ that open the app's **single window**. That window has a sidebar; only **one win
 open**, and every action lives in it (you never need the popover for anything):
 
 - **Dashboard** — one full-width tile per account, stacked top to bottom: large usage bars,
-  reset day/date/time, per-account **Name**, **Menu label**, **ring colour**
-  (prefix), **sync interval**, a **"Synced N min ago"** button (click to sync that account now),
+  reset day/date/time, per-account **Name**, **Menu label** (prefix), **ring colour**
+  (automatic warning colours or a custom colour), **sync interval**, a **"Synced N min ago"**
+  button (click to sync that account now),
   **▲ / ▼ chevrons** in each tile's header to reorder accounts (the order is remembered and is
   also the order used in the popover and the menu-bar label), and remove / **Sign in again**
   controls. **Sign in again** re-authenticates *that* account in place — it keeps the account's
@@ -109,8 +117,11 @@ open**, and every action lives in it (you never need the popover for anything):
 
 ### Notch panel (optional, off by default)
 The sidebar's **Notch Panel** screen turns on a floating panel with one ring per account. Each
-ring is two arcs: the **outer** is the worst weekly limit, the **inner** is the current session.
-The account's **Menu label** prefix, if it has one, sits in the middle.
+ring can have two arcs: the **outer** is the worst available weekly limit, and the **inner** is
+the current session when the provider reports one. The account's **Menu label** prefix, if it
+has one, sits in the middle; otherwise the centre shows the account's Claude or Codex provider
+mark. Dashboard's **Custom ring colour** switch gives either arc that account's chosen colour;
+with the switch off, usage controls the green / amber / red colour.
 
 **Which display** it appears on is a setting: the **main display** (menu bar and Dock), the
 **display with the notch** (the built-in MacBook screen, wherever it currently sits in the
@@ -123,9 +134,10 @@ Three positions:
 | **Top (notch)** | hidden inside the MacBook notch — a pill over the middle of the menu bar on displays without one. **Keep the rings visible without hovering** shows them at rest instead, and is set **separately for the display with the notch and for one without** — so working on the laptop alone and then plugging in a monitor switches it on its own, with nothing to toggle | grows downwards, rings in a row |
 | **Left / right edge** | small rings, **always visible**, at a height you pick with a slider | rings grow, a gear appears |
 
-Each ring carries a small provider mark on its shoulder, and the **Notch Panel** screen lets
-you hide individual accounts from the panel — a hidden account keeps syncing and still counts
-towards the menu-bar icon, it just gets no ring.
+Each ring identifies its provider in the centre when no menu label is set, or with a small mark
+on its shoulder when the centre contains that label. The **Notch Panel** screen lets you hide
+individual accounts from the panel — a hidden account keeps syncing and still counts towards
+the menu-bar icon, it just gets no ring.
 
 Point at a ring and its details open beside the panel (below it at the top, to the side on an
 edge): every limit window with its own bar, percentage and reset time. That popover is the only

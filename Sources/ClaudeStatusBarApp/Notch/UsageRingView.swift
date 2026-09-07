@@ -77,9 +77,7 @@ public struct UsageRingView: View {
                 .minimumScaleFactor(0.5)
                 .frame(width: diameter * 0.48)
         } else {
-            Image(systemName: "gauge.medium")
-                .animatableFont(size: diameter * 0.28, weight: .semibold)
-                .foregroundStyle(.white)
+            ProviderMarkView(provider: model.provider, diameter: diameter * 0.40)
         }
     }
 
@@ -95,8 +93,10 @@ public struct UsageRingView: View {
         // far enough out that it clears the outer arc, which is the arc carrying the weekly
         // number and the one worth reading at a glance.
         .overlay(alignment: .topTrailing) {
-            ProviderMarkView(provider: model.provider, diameter: max(diameter * 0.32, 11))
-                .offset(x: diameter * 0.22, y: -diameter * 0.22)
+            if model.prefix != nil {
+                ProviderMarkView(provider: model.provider, diameter: max(diameter * 0.32, 11))
+                    .offset(x: diameter * 0.22, y: -diameter * 0.22)
+            }
         }
         .contentShape(Circle())
         .help(model.label)
