@@ -54,6 +54,65 @@ private func tokenResponse(_ access: String) -> HTTPResponse {
         #"{"access_token":"\#(access)","refresh_token":"RT","expires_in":28800,"scope":""}"#.utf8))
 }
 
+@Test @MainActor func importClaudeToken_createsAccountAndKeepsSecretOutOfSnapshot() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = InMemoryTokenStore()
+    let (mgr, state) = makeManager(MockHTTPClient(), store: store, snapURL: tmp)
+    let token = "sk-ant-oat01-test-import"
+    let account = try mgr.addClaudeToken(" \n" + token + "\n", label: "Work", interval: 600)
+    #expect(state.accounts.count == 1)
+    #expect(account.effectiveProvider == .claude)
+    #expect(account.syncInterval == 600)
+    let bundle = try #require(try store.load(account.id))
+    #expect(bundle.accessToken == token)
+    #expect(bundle.refreshToken.isEmpty)
+    #expect(!bundle.isExpiring(within: 300, now: Date()))
+    #expect(!String(decoding: try Data(contentsOf: tmp), as: UTF8.self).contains(token))
+}
+
+@Test @MainActor func importClaudeToken_reauthPreservesAccountAndRejectsInvalidInput() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = InMemoryTokenStore()
+    let (mgr, state) = makeManager(MockHTTPClient(), store: store, snapURL: tmp)
+    let account = try mgr.addClaudeToken("sk-ant-oat01-old", label: "Work", interval: 600)
+    mgr.setPrefix(account.id, "W")
+    var stale = state.accounts[0]
+    stale.status = .needsReauth
+    state.upsert(stale)
+    try mgr.reauthClaudeToken(account.id, token: "sk-ant-oat01-new")
+    #expect(state.accounts.count == 1)
+    #expect(state.accounts[0].id == account.id)
+    #expect(state.accounts[0].menuBarPrefix == "W")
+    #expect(state.accounts[0].syncInterval == 600)
+    #expect(state.accounts[0].status == .never)
+    #expect(try store.load(account.id)?.accessToken == "sk-ant-oat01-new")
+    for invalid in ["", "CODE", "sk-ant-api03-key", "sk-ant-oat01-a\nb"] {
+        #expect(throws: ClaudeTokenImportError.invalidToken) {
+            try mgr.reauthClaudeToken(account.id, token: invalid)
+        }
+    }
+    #expect(try store.load(account.id)?.accessToken == "sk-ant-oat01-new")
+}
+
+@Test @MainActor func importClaudeToken_reauthRejectsUnknownAndCodexAccounts() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = InMemoryTokenStore()
+    let (mgr, state) = makeManager(MockHTTPClient(), store: store, snapURL: tmp)
+    let id = UUID()
+    #expect(throws: AccountError.unknownAccount) {
+        try mgr.reauthClaudeToken(id, token: "sk-ant-oat01-test")
+    }
+    state.upsert(Account(id: id, label: "Codex", accountUuid: nil, syncInterval: 300,
+                         status: .never, lastSnapshot: nil, lastSyncedAt: nil, provider: .codex))
+    #expect(throws: ClaudeTokenImportError.wrongProvider) {
+        try mgr.reauthClaudeToken(id, token: "sk-ant-oat01-test")
+    }
+    #expect(try store.load(id) == nil)
+}
+
 @Test @MainActor func reauth_replacesTokenInPlace_withoutAddingATile() async throws {
     let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
     defer { try? FileManager.default.removeItem(at: tmp) }

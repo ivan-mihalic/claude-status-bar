@@ -10,12 +10,22 @@ private enum CodexLoginMethod: String, CaseIterable, Identifiable {
     var title: String { self == .browser ? "Browser" : "Device code" }
 }
 
+private enum ClaudeLoginMethod: String, CaseIterable, Identifiable {
+    case browser
+    case oauthToken
+
+    var id: String { rawValue }
+    var title: String { self == .browser ? "Browser" : "OAuth token" }
+}
+
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var provider: Provider = .claude
     @State private var codexLoginMethod: CodexLoginMethod = .browser
+    @State private var claudeLoginMethod: ClaudeLoginMethod = .browser
+    @State private var oauthToken = ""
     @State private var pending: PendingLogin?
     @State private var deviceLogin: DeviceCodeLogin?
     @State private var loginTask: Task<Void, Never>?
@@ -37,7 +47,7 @@ public struct AddAccountView: View {
             if let acct = reauthAccount {
                 Text("Sign in again").font(.title3.bold())
                 Text("Reconnecting “\(acct.label)”. Its name, menu label, interval and "
-                     + "position stay as they are — only the expired credentials are replaced.")
+                     + "position stay as they are — only the credentials are replaced.")
                     .font(.caption).foregroundStyle(.secondary)
                 if acct.effectiveProvider == .codex {
                     Picker("Sign in using", selection: $codexLoginMethod) {
@@ -72,7 +82,24 @@ public struct AddAccountView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            if let deviceLogin {
+            if effectiveProvider == .claude {
+                Picker("Sign in using", selection: $claudeLoginMethod) {
+                    ForEach(ClaudeLoginMethod.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(connecting)
+                .onChange(of: claudeLoginMethod) { _, _ in resetLogin() }
+            }
+            if effectiveProvider == .claude, claudeLoginMethod == .oauthToken {
+                SecureField("Paste OAuth token (sk-ant-oat01-…)", text: $oauthToken)
+                Text("The token is stored in macOS Keychain and used until Claude rejects it. Its lifetime depends on when it was issued.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Tokens from claude setup-token last about a year but may lack user:profile permission required to read usage.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Use OAuth token") { importToken() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(oauthToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
+            } else if let deviceLogin {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Enter this one-time code:").font(.caption).foregroundStyle(.secondary)
                     Text(deviceLogin.userCode)
@@ -87,9 +114,9 @@ public struct AddAccountView: View {
                     Button("Cancel") { resetLogin() }
                 }
             } else if pending == nil {
-                Button("Sign in with \(provider.title)…") { start() }
+                Button("Sign in with \(effectiveProvider.title)…") { start() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!provider.isSupported || connecting)
+                    .disabled(!effectiveProvider.isSupported || connecting)
             } else if usesPastedCode {
                 Text("A browser opened. After signing in, copy the code shown on the callback page and paste it here.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -111,7 +138,26 @@ public struct AddAccountView: View {
         }
         .padding(20).frame(width: 380)
         .onAppear { resetLogin() }
-        .onDisappear { loginTask?.cancel() }
+        .onDisappear { loginTask?.cancel(); oauthToken = "" }
+    }
+
+    private var effectiveProvider: Provider {
+        reauthAccount?.effectiveProvider ?? provider
+    }
+
+    private func importToken() {
+        connecting = true
+        defer { connecting = false }
+        do {
+            if let acct = reauthAccount {
+                try env.accountManager.reauthClaudeToken(acct.id, token: oauthToken)
+            } else {
+                let name = label.isEmpty ? "Claude account" : label
+                _ = try env.accountManager.addClaudeToken(oauthToken, label: name,
+                                                          interval: defaultInterval)
+            }
+            finishSuccessfully()
+        } catch { self.error = Redaction.redact(error.localizedDescription) }
     }
 
     /// Anthropic shows the code on a web page; Codex redirects to a loopback address the app
@@ -189,12 +235,12 @@ public struct AddAccountView: View {
     private func finishSuccessfully() {
         env.syncCoordinator.start()
         loginTask = nil; pending = nil; deviceLogin = nil
-        code = ""; label = ""; error = nil
+        code = ""; oauthToken = ""; label = ""; error = nil
         router.show(.dashboard)
     }
 
     private func resetLogin() {
         loginTask?.cancel(); loginTask = nil
-        pending = nil; deviceLogin = nil; code = ""; error = nil; connecting = false
+        pending = nil; deviceLogin = nil; code = ""; oauthToken = ""; error = nil; connecting = false
     }
 }

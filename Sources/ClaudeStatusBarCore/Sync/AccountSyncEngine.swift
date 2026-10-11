@@ -60,12 +60,20 @@ public struct AccountSyncEngine {
         }
         let tokens = backend.tokens
         let usage = backend.usage
-        guard let bundle0 = await tokens.current(accountID) else {
+        let stored: TokenBundle?
+        do { stored = try await tokens.current(accountID) }
+        catch TokenRefreshCoordinator.Failure.storeFailed(let why) {
+            return .failed(why)
+        } catch {
+            return .failed("couldn't read stored credentials")
+        }
+        guard let bundle0 = stored else {
             return .needsReauth
         }
         // Proactive refresh if near expiry.
         var bundle = bundle0
-        if bundle.isExpiring(within: refreshWindow, now: clock.now()) {
+        if bundle.refreshToken.isEmpty, bundle.expiresAt <= clock.now() { return .needsReauth }
+        if !bundle.refreshToken.isEmpty, bundle.isExpiring(within: refreshWindow, now: clock.now()) {
             switch await refresh(bundle, for: accountID, tokens: tokens) {
             case .refreshed(let r):     bundle = r
             case .rejected:             return .needsReauth
@@ -73,12 +81,15 @@ public struct AccountSyncEngine {
             case .storeFailed(let why): return .failed(why)
             }
         }
+        // Refresh může vrátit přihlášení, které uživatel mezitím nahradil importem.
+        let canRefresh = !bundle.refreshToken.isEmpty
         // Fetch usage; on 401 — and only on 401 — try exactly one reactive refresh.
         do {
             let snap = try await usage.fetch(tokens: bundle, now: clock.now())
             return .success(snap)
         } catch let e as UsageAPIError {
             if case .unauthorized = e {
+                guard canRefresh else { return .needsReauth }
                 switch await refresh(bundle, for: accountID, tokens: tokens) {
                 case .refreshed(let refreshed):
                     do {
@@ -89,27 +100,33 @@ public struct AccountSyncEngine {
                         // problem if the server says *unauthorized* again. Anything else
                         // — a limit, a refusal, a 500 — must keep its own meaning, or
                         // running out of quota shows up as "sign in again".
-                        return outcome(for: retryError, fallback: .needsReauth)
+                        return outcome(for: retryError, fallback: .needsReauth,
+                                       provider: provider, canRefresh: !refreshed.refreshToken.isEmpty)
                     }
                 case .rejected:             return .needsReauth
                 case .unreachable:          return .offline
                 case .storeFailed(let why): return .failed(why)
                 }
             }
-            return outcome(for: e, fallback: .offline)
+            return outcome(for: e, fallback: .offline, provider: provider, canRefresh: canRefresh)
         } catch {
             return .offline   // network/URLError
         }
     }
 
     /// Maps a usage-fetch failure to its outcome. `fallback` covers a repeat 401.
-    private func outcome(for error: Error, fallback: SyncOutcome) -> SyncOutcome {
+    private func outcome(for error: Error, fallback: SyncOutcome,
+                         provider: Provider, canRefresh: Bool) -> SyncOutcome {
         guard let e = error as? UsageAPIError else { return .offline }
         switch e {
         case .rateLimited(let retryAfter): return .rateLimited(retryAfter: retryAfter)
         // 403 is a refusal, not a bad token; treat it as a temporary block so the app
         // keeps retrying on its own instead of demanding credentials it already has.
-        case .forbidden:                   return .rateLimited(retryAfter: nil)
+        case .forbidden:
+            if provider == .claude, !canRefresh {
+                return .failed("Claude refused usage access for this OAuth token. It may lack user:profile permission. Tokens from claude setup-token only support model requests; use a token with usage access or browser sign-in.")
+            }
+            return .rateLimited(retryAfter: nil)
         case .server:                      return .offline
         case .decoding:                    return .failed("decoding")
         case .unauthorized:                return fallback

@@ -14,7 +14,7 @@ public actor TokenRefreshCoordinator {
         case rejected
         /// Network trouble or a transient refusal. The stored grant is presumably fine.
         case unreachable
-        /// Refreshed, but the new token could not be persisted.
+        /// Úložiště nelze přečíst nebo do něj zapsat; nejde o zaniklý grant.
         case storeFailed(String)
     }
 
@@ -32,12 +32,23 @@ public actor TokenRefreshCoordinator {
 
     /// The account's current bundle: whatever the store holds, unless a newer one is
     /// still waiting to be written.
-    public func current(_ id: UUID) -> TokenBundle? {
+    public func current(_ id: UUID) throws -> TokenBundle? {
         if let pending = unpersisted[id] {
             persist(pending, for: id)
             return pending
         }
-        return try? store.load(id)
+        do { return try store.load(id) }
+        catch {
+            // Chyba přístupu není důkaz, že token chybí. Zpráva nikdy neobsahuje
+            // popis libovolné chyby úložiště, který by mohl obsahovat token.
+            let detail: String
+            if case KeychainError.status(let status) = error {
+                detail = " (Keychain status \(status))"
+            } else {
+                detail = ""
+            }
+            throw Failure.storeFailed("couldn't read stored credentials" + detail)
+        }
     }
 
     /// Refreshes `stale`, coalescing concurrent callers onto one round trip.
@@ -46,7 +57,7 @@ public actor TokenRefreshCoordinator {
             return try await running.value      // join; never spend the token twice
         }
         // Someone finished a refresh while this caller was still holding an old bundle.
-        if let fresh = current(id), fresh.accessToken != stale.accessToken {
+        if let fresh = try current(id), fresh.accessToken != stale.accessToken {
             return fresh
         }
         let task = Task<TokenBundle, Error> { [oauth] in
@@ -58,6 +69,11 @@ public actor TokenRefreshCoordinator {
         defer { inFlight[id] = nil }
 
         let refreshed = try await task.value
+        // Během síťového await mohl uživatel vložit token nebo se znovu přihlásit.
+        // Opožděná odpověď starého grantu nesmí přepsat nové přihlášení.
+        if let fresh = try? store.load(id), fresh != stale {
+            return fresh
+        }
         guard persist(refreshed, for: id) else {
             unpersisted[id] = refreshed
             throw Failure.storeFailed("couldn't save the refreshed token")

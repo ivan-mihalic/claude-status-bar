@@ -35,10 +35,10 @@ public struct DashboardView: View {
                                         in: 60...3600, step: 60)
                                     .font(.caption)
                                 Spacer()
-                                if acct.status == .needsReauth {
-                                    // Re-signs in to THIS account (same id) rather than
-                                    // adding a second tile for the same person.
-                                    Button("Sign in again") { router.showReauth(acct.id) }
+                                // Token lze nahradit i po odmítnutí usage přístupu nebo
+                                // před expirací, bez mazání účtu a jeho nastavení.
+                                Button(acct.status == .needsReauth ? "Sign in again" : "Change sign-in…") {
+                                    router.showReauth(acct.id)
                                 }
                                 Button(role: .destructive) {
                                     env.accountManager.remove(acct.id)

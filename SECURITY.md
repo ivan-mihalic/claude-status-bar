@@ -74,6 +74,12 @@ your files, cannot see other apps' containers, and cannot read Claude Code's loc
 
 ## Network endpoints contacted
 
+Ruční import Claude OAuth tokenu neotevírá prohlížeč a neposílá token na exchange ani refresh
+endpoint. Token je ve skrytém poli pouze po dobu vyplňování formuláře, pak se ukládá do Keychain
+a posílá pouze v bearer hlavičce na usage endpoint. Pole se vyčistí při úspěchu, přepnutí metody
+i opuštění formuláře. Účetní snapshot token neobsahuje. Import nevytváří nový nezávislý grant:
+používá přímo token vložený uživatelem a nečte credentials jiných aplikací.
+
 The app only contacts the selected provider's authentication and usage hosts, plus its own
 Sparkle update host, over HTTPS:
 

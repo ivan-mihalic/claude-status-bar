@@ -102,6 +102,67 @@ private final class RotatingTokenServer: @unchecked Sendable {
     #expect(out == .needsReauth)
 }
 
+@Test(arguments: [200, 401, 403])
+func test_tokenImportedDuringRefresh_isNotOverwrittenByOldGrant(status: Int) async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(expiringBundle(), for: id)
+    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-imported")
+    let body = try usageBody()
+    let calls = RefreshCallCounter()
+    let http = MockHTTPClient { req in
+        if req.url!.path.contains("oauth/token") {
+            calls.count += 1
+            #expect(calls.count == 1, "importovaný access-only token nesmí spustit druhý refresh")
+            // Uživatel během čekání na odpověď nahradí přihlášení vloženým tokenem.
+            try store.save(imported, for: id)
+            return HTTPResponse(status: 200, headers: [:], body: Data(
+                #"{"access_token":"OLD-GRANT-ROTATED","refresh_token":"RT2","expires_in":28800}"#.utf8))
+        }
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer sk-ant-oat01-imported")
+        return HTTPResponse(status: status, headers: [:], body: body)
+    }
+    let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
+    switch status {
+    case 200:
+        guard case .success = out else { Issue.record("očekáván success: \(out)"); return }
+    case 401:
+        #expect(out == .needsReauth)
+    default:
+        guard case .failed(let reason) = out else { Issue.record("očekávána chyba usage oprávnění: \(out)"); return }
+        #expect(reason.contains("user:profile"))
+    }
+    #expect(try store.load(id) == imported)
+}
+
+private final class RefreshCallCounter: @unchecked Sendable { var count = 0 }
+
+@Test func test_tokenImportedDuringReactiveRefresh_reportsUsagePermissionOnForbidden() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(TokenBundle(accessToken: "OLD", refreshToken: "RT1",
+                              expiresAt: .distantFuture, scopes: []), for: id)
+    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-imported")
+    let http = MockHTTPClient { req in
+        if req.url!.path.contains("oauth/token") {
+            try store.save(imported, for: id)
+            return HTTPResponse(status: 200, headers: [:], body: Data(
+                #"{"access_token":"ROTATED","refresh_token":"RT2","expires_in":28800}"#.utf8))
+        }
+        let status = req.value(forHTTPHeaderField: "Authorization") == "Bearer OLD" ? 401 : 403
+        return HTTPResponse(status: status, headers: [:], body: Data())
+    }
+    let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
+    guard case .failed(let reason) = out else {
+        Issue.record("importovaný token vyžaduje vysvětlení usage oprávnění: \(out)")
+        return
+    }
+    #expect(reason.contains("user:profile"))
+    #expect(try store.load(id) == imported)
+}
+
 /// A store whose writes fail — the shape that silently loses a rotated refresh token.
 private final class FailingWriteTokenStore: TokenStore, @unchecked Sendable {
     private let inner = InMemoryTokenStore()

@@ -30,6 +30,28 @@ public final class AccountManager {
         login.begin(provider: provider)
     }
 
+    public func addClaudeToken(_ token: String, label: String,
+                               interval: Int = Account.intervalDefault) throws -> Account {
+        let bundle = try ClaudeTokenImport.bundle(from: token)
+        let id = UUID()
+        try tokenStore.save(bundle, for: id)
+        return register(id: id, label: label, interval: interval, provider: .claude)
+    }
+
+    public func reauthClaudeToken(_ id: UUID, token: String) throws {
+        guard var account = appState.accounts.first(where: { $0.id == id }) else {
+            throw AccountError.unknownAccount
+        }
+        guard account.effectiveProvider == .claude else {
+            throw ClaudeTokenImportError.wrongProvider
+        }
+        let bundle = try ClaudeTokenImport.bundle(from: token)
+        try tokenStore.save(bundle, for: id)
+        account.status = .never
+        appState.upsert(account)
+        persist()
+    }
+
     /// Finishes a loopback sign-in (Codex) and files the account.
     public func finishAdd(_ pending: PendingLogin, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {

@@ -5,8 +5,8 @@ multiple accounts at once** — the same limit windows their coding clients show
 account you connect, always visible in your menu bar.
 
 - **Multi-account and multi-provider.** Connect as many Claude and Codex accounts as you
-  like. Every account has the app's **own independent** OAuth login; Codex supports either
-  a browser callback or a device code.
+  like. Claude účty podporují přihlášení v prohlížeči i vložení OAuth tokenu; Codex podporuje
+  přihlášení přes browser callback nebo device code.
 - **The usage windows each provider actually reports.** Claude normally exposes a current
   5-hour **session**, current **week (all models)**, and current **week (premium model)**.
   Codex exposes its available 5-hour and/or weekly subscription limits. Every available
@@ -92,6 +92,19 @@ instead of treating the absent second window as a failed sync.
    returns automatically from the browser or shows a one-time device code. Approve any Keychain prompt.
 4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.
+
+### Vložení Claude OAuth tokenu
+
+V **Add Account → Claude → OAuth token** vlož access token začínající `sk-ant-oat01-`
+a klikni na **Use OAuth token**. Stejná možnost je dostupná při **Sign in again**;
+zachová účet i jeho nastavení. Token lze vyměnit kdykoli přes **Change sign-in…** na Dashboardu.
+Pole je skryté a token se ukládá pouze do macOS Keychain.
+
+Importovaný token se používá přímo, bez refresh tokenu. Jeho platnost určuje server;
+import mu neprodlužuje životnost. Po odpovědi 401 vlož nový token nebo se přihlas přes prohlížeč.
+Pokud server odmítne čtení spotřeby, aplikace zobrazí vysvětlení oprávnění místo rate-limit stavu.
+Roční token z `claude setup-token` je určený pro model requests a nemá potřebné oprávnění
+`user:profile` pro čtení spotřeby: [dokumentace autentizace](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token).
 
 ### The app window
 Click the menu-bar **gauge icon** for a popover — a quick glance at every account, plus buttons
@@ -184,8 +197,8 @@ Sparkle verifies that signature before installing anything.
   entitlement of any kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
-- Each account uses the **app's own independent OAuth grant**; it never touches Claude Code's
-  local session or token (so it can't log you out of the `claude` CLI).
+- Přihlášení přes prohlížeč vytváří **vlastní nezávislý OAuth grant aplikace**. Při ručním
+  importu používá aplikace token vložený uživatelem; automaticky nečte lokální session Claude Code.
 - **It does not watch your mouse.** Hover on the notch panel comes from a tracking area on the
   app's **own window**, so the app is told when the pointer is over its panel and nothing else.
   It installs **no system-wide event monitor** and never sees pointer or keyboard activity
