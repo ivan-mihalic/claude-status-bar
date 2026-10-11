@@ -261,3 +261,54 @@ private final class FailingWriteTokenStore: TokenStore, @unchecked Sendable {
     #expect(try await coordinator.current(id) == imported)
     #expect(try store.load(id) == imported)
 }
+
+@Test func test_invalidGrantMentionInErrorMessageDoesNotSignOut() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(expiringBundle(), for: id)
+    let http = MockHTTPClient { _ in
+        HTTPResponse(status: 400, headers: [:], body: Data(
+            #"{"error":{"type":"temporarily_unavailable","message":"not an invalid_grant; please retry"}}"#.utf8))
+    }
+    #expect(await engine(http, clock: clock, store: store).syncOnce(accountID: id) == .offline)
+}
+
+@Test func test_freshAccessTokenRejectedDoesNotDiscardWorkingRefreshGrant() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(TokenBundle(accessToken: "OLD", refreshToken: "RT1", expiresAt: .distantFuture, scopes: []), for: id)
+    let calls = RefreshCallCounter()
+    let http = MockHTTPClient { req in
+        if req.url!.path.contains("oauth/token") {
+            calls.count += 1
+            return HTTPResponse(status: 200, headers: [:], body: Data(
+                #"{"access_token":"FRESH","refresh_token":"RT2","expires_in":28800}"#.utf8))
+        }
+        return HTTPResponse(status: 401, headers: [:], body: Data())
+    }
+    let outcome = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
+    guard case .failed = outcome else { Issue.record("čerstvý grant vyžaduje retry, ne browser login: \(outcome)"); return }
+    #expect(calls.count == 1)
+    #expect(try store.load(id)?.refreshToken == "RT2")
+}
+
+@Test func test_proactivelyRenewedToken401DoesNotTriggerSecondRefreshInSameSync() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(expiringBundle(), for: id)
+    let calls = RefreshCallCounter()
+    let http = MockHTTPClient { req in
+        if req.url!.path.contains("oauth/token") {
+            calls.count += 1
+            return HTTPResponse(status: 200, headers: [:], body: Data(
+                #"{"access_token":"FRESH","refresh_token":"RT2","expires_in":28800}"#.utf8))
+        }
+        return HTTPResponse(status: 401, headers: [:], body: Data())
+    }
+    let outcome = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
+    #expect(calls.count == 1)
+    guard case .failed = outcome else { Issue.record("obnovený grant má zůstat uložený: \(outcome)"); return }
+}

@@ -37,7 +37,7 @@ public struct DashboardView: View {
                                 Spacer()
                                 // Token lze nahradit i po odmítnutí usage přístupu nebo
                                 // před expirací, bez mazání účtu a jeho nastavení.
-                                Button(acct.effectiveProvider == .claude ? "Replace OAuth token…" : (acct.status == .needsReauth ? "Sign in again" : "Change sign-in…")) {
+                                Button(acct.status == .needsReauth ? "Sign in again" : "Change sign-in…") {
                                     router.showReauth(acct.id)
                                 }
                                 Button(role: .destructive) {

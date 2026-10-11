@@ -72,10 +72,11 @@ public struct AccountSyncEngine {
         }
         // Proactive refresh if near expiry.
         var bundle = bundle0
+        var refreshedThisAttempt = false
         if bundle.refreshToken.isEmpty, bundle.expiresAt <= clock.now() { return .needsReauth }
         if !bundle.refreshToken.isEmpty, bundle.isExpiring(within: refreshWindow, now: clock.now()) {
             switch await refresh(bundle, for: accountID, tokens: tokens) {
-            case .refreshed(let r):     bundle = r
+            case .refreshed(let r):     bundle = r; refreshedThisAttempt = true
             case .rejected:             return .needsReauth
             case .unreachable:          return .offline
             case .storeFailed(let why): return .failed(why)
@@ -90,6 +91,9 @@ public struct AccountSyncEngine {
         } catch let e as UsageAPIError {
             if case .unauthorized = e {
                 guard canRefresh else { return .needsReauth }
+                if refreshedThisAttempt {
+                    return freshTokenRejected(provider: provider, hasRefreshToken: true)
+                }
                 switch await refresh(bundle, for: accountID, tokens: tokens) {
                 case .refreshed(let refreshed):
                     do {
@@ -100,7 +104,8 @@ public struct AccountSyncEngine {
                         // problem if the server says *unauthorized* again. Anything else
                         // — a limit, a refusal, a 500 — must keep its own meaning, or
                         // running out of quota shows up as "sign in again".
-                        return outcome(for: retryError, fallback: .needsReauth,
+                        return outcome(for: retryError, fallback: freshTokenRejected(provider: provider,
+                                                    hasRefreshToken: !refreshed.refreshToken.isEmpty),
                                        provider: provider)
                     }
                 case .rejected:             return .needsReauth
@@ -112,6 +117,13 @@ public struct AccountSyncEngine {
         } catch {
             return .offline   // network/URLError
         }
+    }
+
+    private func freshTokenRejected(provider: Provider, hasRefreshToken: Bool) -> SyncOutcome {
+        if provider == .claude, hasRefreshToken {
+            return .failed("Claude rejected the renewed access token (HTTP 401). Credentials are kept; usage will be retried automatically. No new sign-in is required unless the refresh grant is explicitly rejected.")
+        }
+        return .needsReauth
     }
 
     /// Maps a usage-fetch failure to its outcome. `fallback` covers a repeat 401.

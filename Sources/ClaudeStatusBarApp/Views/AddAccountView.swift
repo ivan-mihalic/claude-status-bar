@@ -10,12 +10,22 @@ private enum CodexLoginMethod: String, CaseIterable, Identifiable {
     var title: String { self == .browser ? "Browser" : "Device code" }
 }
 
+private enum ClaudeLoginMethod: String, CaseIterable, Identifiable {
+    case browser
+    case oauthToken
+
+    var id: String { rawValue }
+    var title: String { self == .browser ? "Browser" : "OAuth token" }
+}
+
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var provider: Provider = .claude
     @State private var codexLoginMethod: CodexLoginMethod = .browser
+    @State private var claudeLoginMethod: ClaudeLoginMethod = .browser
+    @State private var code = ""
     @State private var oauthToken = ""
     @State private var refreshToken = ""
     @State private var pending: PendingLogin?
@@ -37,7 +47,7 @@ public struct AddAccountView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let acct = reauthAccount {
-                Text(acct.effectiveProvider == .claude ? "Replace OAuth credentials" : "Sign in again").font(.title3.bold())
+                Text("Reconnect account").font(.title3.bold())
                 Text("Reconnecting “\(acct.label)”. Its name, menu label, interval and "
                      + "position stay as they are — only the credentials are replaced.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -75,6 +85,18 @@ public struct AddAccountView: View {
                 }
             }
             if effectiveProvider == .claude {
+                Picker("Sign in using", selection: $claudeLoginMethod) {
+                    ForEach(ClaudeLoginMethod.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(connecting)
+                .onChange(of: claudeLoginMethod) { _, _ in resetLogin() }
+                if claudeLoginMethod == .browser {
+                    Text("Sign in once in your browser. This app keeps its own credentials in macOS Keychain and renews them automatically. Temporary sync errors keep your sign-in.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if effectiveProvider == .claude, claudeLoginMethod == .oauthToken {
                 SecureField("OAuth access token (sk-ant-oat01-…)", text: $oauthToken)
                     .disabled(connecting)
                 SecureField("Matching refresh token (optional)", text: $refreshToken)
@@ -110,6 +132,19 @@ public struct AddAccountView: View {
                 Button("Sign in with \(effectiveProvider.title)…") { start() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!effectiveProvider.isSupported || connecting)
+            } else if pending?.provider == .claude {
+                Text("After signing in, copy the authorization code from the callback page and paste it here.")
+                    .font(.caption).foregroundStyle(.secondary)
+                SecureField("Authorization code", text: $code).disabled(connecting)
+                Button(connecting ? "Connecting…" : "Connect") {
+                    connecting = true
+                    error = nil
+                    let attempt = loginGeneration
+                    loginTask = Task { await connect(attempt: attempt) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
+                Button("Cancel") { resetLogin() }
             } else {
                 // Codex redirects to a local address instead of showing a code, so there is
                 // nothing to paste — the app is waiting for the browser to come back.
@@ -124,7 +159,7 @@ public struct AddAccountView: View {
         }
         .padding(20).frame(width: 380)
         .onAppear { resetLogin() }
-        .onDisappear { loginTask?.cancel(); oauthToken = ""; refreshToken = "" }
+        .onDisappear { resetLogin() }
     }
 
     private var effectiveProvider: Provider {
@@ -135,8 +170,8 @@ public struct AddAccountView: View {
         guard attempt == loginGeneration else { return }
         defer { if attempt == loginGeneration { connecting = false } }
         do {
-            if let acct = reauthAccount {
-                try await env.accountManager.reauthClaudeToken(acct.id, token: oauthToken, refreshToken: refreshToken)
+            if let id = router.reauthTarget {
+                try await env.accountManager.reauthClaudeToken(id, token: oauthToken, refreshToken: refreshToken)
             } else {
                 let name = label.isEmpty ? "Claude account" : label
                 _ = try await env.accountManager.addClaudeToken(oauthToken, refreshToken: refreshToken, label: name,
@@ -156,7 +191,8 @@ public struct AddAccountView: View {
         let target = reauthAccount?.effectiveProvider ?? provider
         if target == .codex, codexLoginMethod == .deviceCode {
             connecting = true
-            loginTask = Task { await connectDeviceCode(provider: target) }
+            let attempt = loginGeneration
+            loginTask = Task { await connectDeviceCode(provider: target, attempt: attempt) }
             return
         }
         guard let started = env.accountManager.beginLogin(provider: target) else {
@@ -166,58 +202,80 @@ public struct AddAccountView: View {
         pending = started
         // Read the provider off the pending login rather than the @State picker: for a
         // re-sign-in the picker isn't even shown, and it would still say "Claude".
-        loginTask = Task { await connect() }
+        if started.provider != .claude {
+            let attempt = loginGeneration
+            loginTask = Task { await connect(attempt: attempt) }
+        }
     }
 
     @MainActor
-    private func connectDeviceCode(provider: Provider) async {
-        defer { connecting = false; loginTask = nil }
+    private func connectDeviceCode(provider: Provider, attempt: UUID) async {
+        guard attempt == loginGeneration else { return }
+        let targetID = router.reauthTarget
+        let name = label.isEmpty ? "\(provider.title) account" : label
+        defer { if attempt == loginGeneration { connecting = false; loginTask = nil } }
         do {
             let login = try await env.accountManager.beginDeviceCode(provider: provider)
             try Task.checkCancellation()
             deviceLogin = login
-            let name = label.isEmpty ? "\(provider.title) account" : label
-            if let acct = reauthAccount {
-                try await env.accountManager.reauth(acct.id, deviceLogin: login, provider: provider)
+            if let id = targetID {
+                try await env.accountManager.reauth(id, deviceLogin: login, provider: provider)
             } else {
                 _ = try await env.accountManager.finishAdd(login, provider: provider,
                                                            label: name, interval: defaultInterval)
             }
+            guard attempt == loginGeneration, !Task.isCancelled else { return }
             finishSuccessfully()
         } catch is CancellationError {
             // The Cancel button already returned the form to its initial state.
         } catch {
+            guard attempt == loginGeneration else { return }
             deviceLogin = nil
             self.error = Redaction.redact(error.localizedDescription)
         }
     }
 
-    private func connect() async {
-        guard let pending else { return }
-        connecting = true; defer { connecting = false }
+    private func connect(attempt: UUID) async {
+        guard attempt == loginGeneration, let pending else { return }
+        let targetID = router.reauthTarget
+        let name = label.isEmpty ? "\(pending.provider.title) account" : label
+        let rawCode = code
+        connecting = true
+        defer { if attempt == loginGeneration { connecting = false } }
         do {
-            let name = label.isEmpty ? "\(pending.provider.title) account" : label
-            if let acct = reauthAccount {
-                try await env.accountManager.reauth(acct.id, pending)
+            if let id = targetID {
+                if pending.provider == .claude {
+                    try await env.accountManager.reauth(id, pending, code: rawCode)
+                } else {
+                    try await env.accountManager.reauth(id, pending)
+                }
+            } else if pending.provider == .claude {
+                _ = try await env.accountManager.finishAdd(pending, code: rawCode,
+                                                            label: name, interval: defaultInterval)
             } else {
                 _ = try await env.accountManager.finishAdd(pending, label: name,
                                                            interval: defaultInterval)
             }
+            guard attempt == loginGeneration, !Task.isCancelled else { return }
             finishSuccessfully()
-        } catch { self.error = Redaction.redact(error.localizedDescription) }
+        } catch is CancellationError {
+        } catch {
+            guard attempt == loginGeneration else { return }
+            self.error = Redaction.redact(error.localizedDescription)
+        }
     }
 
     @MainActor
     private func finishSuccessfully() {
         env.syncCoordinator.start()
         loginTask = nil; pending = nil; deviceLogin = nil
-        oauthToken = ""; refreshToken = ""; label = ""; error = nil
+        code = ""; oauthToken = ""; refreshToken = ""; label = ""; error = nil
         router.show(.dashboard)
     }
 
     private func resetLogin() {
         loginGeneration = UUID()
         loginTask?.cancel(); loginTask = nil
-        pending = nil; deviceLogin = nil; oauthToken = ""; refreshToken = ""; error = nil; connecting = false
+        pending = nil; deviceLogin = nil; code = ""; oauthToken = ""; refreshToken = ""; error = nil; connecting = false
     }
 }

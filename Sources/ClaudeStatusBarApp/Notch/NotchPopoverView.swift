@@ -40,7 +40,7 @@ public struct NotchPopoverView: View {
         switch model.badge {
         case .none:        return nil
         case .offline:     return model.lastSyncError == nil ? "Offline — these numbers may be out of date" : "Usage unavailable — last known values"
-        case .signIn:      return model.provider == .claude ? "Replace the OAuth token to refresh" : "Sign in again to refresh"
+        case .signIn:      return "Sign in again to refresh"
         case .rateLimited: return "Rate limited — retrying later"
         case .syncing:     return "Syncing…"
         }

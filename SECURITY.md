@@ -58,7 +58,7 @@ four entitlements — nothing else is requested:
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
    .loopback`), is started only when a Codex sign-in begins, answers a single request, and is
    torn down as soon as the code arrives, the attempt is cancelled, or it times out (5 minutes).
-   It is never running at rest and is not used by Claude token import. If you only use Claude accounts, nothing in the app ever opens
+   It is never running at rest and is not used by Claude browser sign-in or token import. If you only use Claude accounts, nothing in the app ever opens
    a socket to listen on.
 4. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
    names — `cz.mihalic.claude-status-bar-spks` and `cz.mihalic.claude-status-bar-spki`. This is
@@ -72,6 +72,10 @@ Downloads-folder access, no removable-media access). The app cannot open a file 
 your files, cannot see other apps' containers, and cannot read Claude Code's local session data.
 
 ## Network endpoints contacted
+
+Claude browser OAuth používá PKCE a uloží vlastní grant do Keychain. Volitelný state z vložené
+callback odpovědi se porovnává s konkrétním přihlášením. Zrušení před dokončením zabrání zápisu;
+manager také kontroluje, zda účet mezitím nezmizel nebo nemá novější credentials.
 
 Ruční import Claude OAuth tokenu neotevírá prohlížeč. Access token se nejprve ověří pouze
 čtením usage endpointu; neúspěšné ověření nemění uložené credentials. Access token a volitelný
@@ -88,9 +92,12 @@ brání dvěma aktualizovaným kopiím aplikace současně obnovovat stejný gra
 The app only contacts the selected provider's authentication and usage hosts, plus its own
 Sparkle update host, over HTTPS:
 
+- **`claude.ai/oauth/authorize`** — systémový prohlížeč otevře Claude browser OAuth.
+  Autorizační kód se kopíruje z callback stránky na `console.anthropic.com`.
 - **OAuth token hosty** — obnova Claude tokenů používá `https://platform.claude.com/v1/oauth/token`
   a záložní `https://console.anthropic.com/v1/oauth/token` (viz
-  `Sources/ClaudeStatusBarCore/OAuth/OAuthEndpoints.swift`). Claude UI nevytváří browser login.
+  `Sources/ClaudeStatusBarCore/OAuth/OAuthEndpoints.swift`). Stejné hosty vyměňují
+  autorizační kód při browser přihlášení.
 - **`api.anthropic.com/api/oauth/usage`** — polled periodically with a **read-only `GET`**
   request, authenticated with your account's OAuth bearer token, to fetch your current
   session/week/premium-week usage numbers (see

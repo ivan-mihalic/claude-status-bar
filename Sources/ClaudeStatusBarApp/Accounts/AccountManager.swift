@@ -81,7 +81,9 @@ public final class AccountManager {
     public func finishAdd(_ pending: PendingLogin, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
-        _ = try await login.completeViaLoopback(pending, accountID: id)
+        let bundle = try await login.completeViaLoopback(pending, accountID: id, persist: false)
+        try Task.checkCancellation()
+        try tokenStore.save(bundle, for: id)
         return register(id: id, label: label, interval: interval, provider: pending.provider)
     }
 
@@ -92,14 +94,18 @@ public final class AccountManager {
     public func finishAdd(_ deviceLogin: DeviceCodeLogin, provider: Provider, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
-        _ = try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id)
+        let bundle = try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id, persist: false)
+        try Task.checkCancellation()
+        try tokenStore.save(bundle, for: id)
         return register(id: id, label: label, interval: interval, provider: provider)
     }
 
     public func finishAdd(_ pending: PendingLogin, code: String, label: String,
                           interval: Int = Account.intervalDefault) async throws -> Account {
         let id = UUID()
-        _ = try await login.complete(pending, code: code, accountID: id)
+        let bundle = try await login.complete(pending, code: code, accountID: id, persist: false)
+        try Task.checkCancellation()
+        try tokenStore.save(bundle, for: id)
         return register(id: id, label: label, interval: interval, provider: pending.provider)
     }
 
@@ -118,36 +124,41 @@ public final class AccountManager {
     /// one under the *same* account id, so the tile keeps its name, menu-bar prefix,
     /// interval and position instead of a duplicate appearing next to it.
     public func reauth(_ id: UUID, _ pending: PendingLogin, code: String) async throws {
-        try await reauth(id) { try await login.complete(pending, code: code, accountID: id) }
+        try await reauth(id) { try await login.complete(pending, code: code, accountID: id, persist: false) }
     }
 
     /// Re-signs in a provider whose redirect lands on the loopback listener (Codex): there is
     /// no code to paste, so the browser round-trip *is* the whole step.
     public func reauth(_ id: UUID, _ pending: PendingLogin) async throws {
         try await reauth(id) {
-            try await login.completeViaLoopback(pending, accountID: id)
+            try await login.completeViaLoopback(pending, accountID: id, persist: false)
         }
     }
 
     public func reauth(_ id: UUID, deviceLogin: DeviceCodeLogin,
                        provider: Provider) async throws {
         try await reauth(id) {
-            try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id)
+            try await login.completeDeviceCode(deviceLogin, provider: provider, accountID: id, persist: false)
         }
     }
 
     private func reauth(_ id: UUID,
                         exchange: () async throws -> TokenBundle) async throws {
-        guard appState.accounts.contains(where: { $0.id == id }) else {
+        guard let original = appState.accounts.first(where: { $0.id == id }) else {
             throw AccountError.unknownAccount
         }
-        _ = try await exchange()
+        let bundle = try await exchange()
+        try Task.checkCancellation()
         // Re-read after the await — the account may have been removed meanwhile.
         guard var account = appState.accounts.first(where: { $0.id == id }) else {
-            try? tokenStore.delete(id)
             throw AccountError.unknownAccount
         }
+        guard account.credentialRevision == original.credentialRevision else {
+            throw ClaudeTokenValidationError.credentialsChanged
+        }
+        try tokenStore.save(bundle, for: id)
         account.credentialRevision = UUID()
+        account.lastSyncError = nil
         account.status = .never          // "syncing…" until the first fetch lands
         appState.upsert(account)
         persist()

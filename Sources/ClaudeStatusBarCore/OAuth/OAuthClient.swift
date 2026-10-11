@@ -49,7 +49,11 @@ public struct OAuthClient: Sendable {
         for host in endpoints.tokenHosts {
             let resp: HTTPResponse
             do { resp = try await http.send(build(host)) }
-            catch { lastError = .allHostsFailed; continue }
+            catch {
+                try Task.checkCancellation()
+                lastError = .allHostsFailed; continue
+            }
+            try Task.checkCancellation()
 
             switch resp.status {
             case 200:
@@ -77,15 +81,14 @@ public struct OAuthClient: Sendable {
     /// The `error` field of an OAuth error response, or nil when the body carries none.
     /// A body we can't read is deliberately *not* treated as a dead grant.
     static func errorCode(_ body: Data) -> String? {
-        struct ErrorBody: Decodable { let error: String? }
-        if let code = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error {
-            return code
+        guard let root = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+            return nil
         }
-        // Some gateways wrap the OAuth error; a body that names invalid_grant at all is
-        // still a dead grant. An empty or unreadable body names nothing and is retried.
-        if let text = String(data: body, encoding: .utf8), text.contains("invalid_grant") {
-            return "invalid_grant"
+        if let code = root["error"] as? String { return code }
+        if let wrapped = root["error"] as? [String: Any] {
+            return wrapped["type"] as? String ?? wrapped["code"] as? String
         }
+        // Popis chyby není kód chyby a nesmí sám způsobit odhlášení.
         return nil
     }
 }

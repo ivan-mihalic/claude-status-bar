@@ -18,6 +18,7 @@ public enum LoginError: Error, Equatable {
     /// The redirect came back with a `state` that isn't the one we sent — the response
     /// belongs to a different sign-in attempt, so the code must not be exchanged.
     case stateMismatch
+    case invalidCode
     /// Codex's redirect is a fixed loopback address; if something else holds the port
     /// (`codex login` running in a terminal, most likely) there is nowhere to catch it.
     case callbackPortBusy(UInt16)
@@ -28,6 +29,7 @@ public enum LoginError: Error, Equatable {
 extension LoginError: LocalizedError {
     public var errorDescription: String? {
         switch self {
+        case .invalidCode: return "Paste the authorization code shown after browser sign-in."
         case .stateMismatch: return "The sign-in response did not match this login attempt."
         case .callbackPortBusy(let port):
             return "Port \(port) is already in use. Close another Codex login and try again."
@@ -91,10 +93,11 @@ public struct OAuthLoginService {
     }
 
     public func completeDeviceCode(_ deviceLogin: DeviceCodeLogin, provider: Provider,
-                                   accountID: UUID) async throws -> TokenBundle {
+                                   accountID: UUID, persist: Bool = true) async throws -> TokenBundle {
         guard let device = backends[provider]?.deviceCode else { throw DeviceCodeError.unavailable }
         let bundle = try await device.complete(deviceLogin)
-        try tokenStore.save(bundle, for: accountID)
+        try Task.checkCancellation()
+        if persist { try tokenStore.save(bundle, for: accountID) }
         return bundle
     }
 
@@ -102,7 +105,7 @@ public struct OAuthLoginService {
     /// token. No code is ever pasted — the provider's redirect URI cannot be changed to a
     /// page that displays one.
     public func completeViaLoopback(_ pending: PendingLogin, accountID: UUID,
-                                    timeout: TimeInterval = 300) async throws -> TokenBundle {
+                                    persist: Bool = true, timeout: TimeInterval = 300) async throws -> TokenBundle {
         guard let backend = backends[pending.provider],
               let server = LoopbackCallbackServer(redirectURI: backend.config.redirectURI) else {
             throw AccountError.unknownAccount
@@ -127,21 +130,31 @@ public struct OAuthLoginService {
         let bundle = try await backend.oauth.exchange(code: callback.code,
                                                      verifier: pending.pkce.verifier,
                                                      state: pending.state)
-        try tokenStore.save(bundle, for: accountID)
+        try Task.checkCancellation()
+        if persist { try tokenStore.save(bundle, for: accountID) }
         return bundle
     }
 
     public func complete(_ pending: PendingLogin, code rawCode: String,
-                         accountID: UUID) async throws -> TokenBundle {
-        // Anthropic's callback page shows "<code>#<state>" or "<code>&state=<state>";
-        // accept a pasted value that may include either separator.
-        let code = rawCode
-            .split(whereSeparator: { $0 == "#" || $0 == "&" }).first.map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? rawCode
+                         accountID: UUID, persist: Bool = true) async throws -> TokenBundle {
+        try Task.checkCancellation()
+        let input = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let separator = input.firstIndex { $0 == "#" || $0 == "&" }
+        let code = String(separator.map { input[..<$0] } ?? input[...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { throw LoginError.invalidCode }
+        // Callback state patří konkrétnímu PKCE pokusu; cizí odpověď nevyměňujeme.
+        if let separator {
+            let pasted = String(input[input.index(after: separator)...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let state = pasted.hasPrefix("state=") ? String(pasted.dropFirst(6)) : pasted
+            guard state == pending.state else { throw LoginError.stateMismatch }
+        }
         guard let backend = backends[pending.provider] else { throw AccountError.unknownAccount }
         let bundle = try await backend.oauth.exchange(code: code, verifier: pending.pkce.verifier,
                                                      state: pending.state)
-        try tokenStore.save(bundle, for: accountID)
+        try Task.checkCancellation()
+        if persist { try tokenStore.save(bundle, for: accountID) }
         return bundle
     }
 }

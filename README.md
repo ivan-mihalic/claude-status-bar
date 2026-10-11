@@ -5,7 +5,7 @@ multiple accounts at once** — the same limit windows their coding clients show
 account you connect, always visible in your menu bar.
 
 - **Multi-account and multi-provider.** Connect as many Claude and Codex accounts as you
-  like. Claude účty používají ověřený OAuth token a volitelný refresh token; Codex podporuje
+  like. Claude účty používají výchozí browser OAuth s automatickou obnovou nebo ověřený import tokenů; Codex podporuje
   přihlášení přes browser callback nebo device code.
 - **The usage windows each provider actually reports.** Claude normally exposes a current
   5-hour **session**, current **week (all models)**, and current **week (premium model)**.
@@ -74,7 +74,7 @@ full signing/sandbox/network/data-storage rundown.
 
 | Service | Sign-in | What you see |
 |---|---|---|
-| **Claude** | OAuth access token, volitelně odpovídající refresh token | session, weekly and per-model windows |
+| **Claude** | browser OAuth (výchozí) nebo import OAuth tokenu | session, weekly and per-model windows |
 | **Codex** (ChatGPT plan) | browser callback or device code | whichever 5-hour and/or weekly Codex windows the subscription reports |
 | **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
 
@@ -88,19 +88,34 @@ instead of treating the absent second window as a failed sync.
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
 2. Choose **Claude** or **Codex**. For Codex, also choose **Browser** or **Device code**.
-3. Pro Claude vlož OAuth token podle návodu níže. Codex dokončí browser callback nebo device code.
+3. Claude otevře browser OAuth a požádá o autorizační kód z callback stránky.
+   Codex dokončí browser callback nebo device code.
    Případné oprávnění k vlastnímu Keychain potvrď v systémovém dialogu.
 4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.
 
+### Claude browser OAuth
+
+V **Add Account → Claude → Browser** otevři přihlášení a vlož autorizační kód z callback
+stránky. Browser je výchozí metoda. Při změně existujícího účtu použij **Change sign-in…**;
+po skutečném odmítnutí grantu aplikace nabídne **Sign in again**.
+
+Aplikace ukládá vlastní access a refresh token do macOS Keychain a obnovuje je automaticky.
+Dočasné síťové chyby, HTTP 403/429/5xx ani HTTP 401 po právě dokončené obnově přihlášení
+neruší; poslední čísla zůstávají označená časem měření a sync se opakuje. Jeden sync provede
+nejvýše jednu obnovu grantu. Pouze explicitní strukturovaný OAuth error `invalid_grant`
+znamená zaniklý refresh grant; pouhá zmínka v popisu chyby nestačí. Zrušené přihlášení ani
+opožděný výsledek staršího přihlášení nemění novější credentials nebo odstraněný účet.
+Skutečné zrušení grantu na straně Claude nebo odstranění uložených credentials vyžaduje nové přihlášení.
+
 ### Vložení Claude OAuth tokenu
 
-V **Add Account → Claude** vlož access token začínající `sk-ant-oat01-` a volitelně
+V **Add Account → Claude → OAuth token** vlož access token začínající `sk-ant-oat01-` a volitelně
 odpovídající refresh token `sk-ant-ort01-`. Klikni na **Verify and save OAuth token**.
 Aplikace nejprve skutečně načte spotřebu; teprve po úspěchu uloží tokeny do macOS Keychain
 a zobrazí ověřená čísla. Neplatný token, odmítnuté oprávnění ani výpadek serveru nepřepíší
-původní přihlášení. Token lze vyměnit přes **Replace OAuth token…** na Dashboardu.
-Claude formulář neotevírá prohlížeč.
+původní přihlášení. Token lze vyměnit přes **Change sign-in… → OAuth token** na Dashboardu.
+Ruční tokenový import neotevírá prohlížeč.
 
 S refresh tokenem probíhá automatická obnova při HTTP 401 a po první obnově také před známou
 expirací. Bez něj je nutné po expiraci vložit nový access token. Import platnost neprodlužuje.
@@ -205,8 +220,8 @@ Sparkle verifies that signature before installing anything.
   entitlement of any kind** — it cannot read arbitrary files on your Mac or other apps' data.
 - **Your tokens live only in the macOS Keychain** — never written to disk in plaintext,
   never logged, never shown in the UI.
-- Claude používá pouze tokeny vložené uživatelem; nečte lokální session Claude Code.
-  Codex přihlášení vytváří vlastní OAuth grant aplikace.
+- Browser přihlášení ukládá vlastní OAuth grant aplikace. Claude alternativně přijímá
+  tokeny vložené uživatelem; nečte lokální session Claude Code.
 - **It does not watch your mouse.** Hover on the notch panel comes from a tracking area on the
   app's **own window**, so the app is told when the pointer is over its panel and nothing else.
   It installs **no system-wide event monitor** and never sees pointer or keyboard activity

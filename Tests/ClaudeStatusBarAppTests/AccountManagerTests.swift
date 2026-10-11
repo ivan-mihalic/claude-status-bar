@@ -6,7 +6,7 @@ import TestSupport
 @testable import ClaudeStatusBarCore
 
 @MainActor
-private func makeManager(_ http: MockHTTPClient, store: TokenStore, snapURL: URL)
+private func makeManager(_ http: HTTPClient, store: TokenStore, snapURL: URL)
 -> (AccountManager, AppState) {
     let state = AppState()
     let login = OAuthLoginService(
@@ -281,4 +281,62 @@ func importClaudeToken_cannotCreateAccountWithoutUsageAccess(status: Int) async 
     }
     #expect(try store.load(id) == rotated)
     #expect(state.accounts == [account])
+}
+
+private actor SuspendedBrowserExchange: HTTPClient {
+    private let usage: Data
+    private var response: CheckedContinuation<HTTPResponse, Never>?
+    private var started: CheckedContinuation<Void, Never>?
+    init(usage: Data) { self.usage = usage }
+    func send(_ request: URLRequest) async throws -> HTTPResponse {
+        if request.url == UsageAPIClient.endpoint {
+            return HTTPResponse(status: 200, headers: [:], body: usage)
+        }
+        return await withCheckedContinuation {
+            response = $0
+            started?.resume(); started = nil
+        }
+    }
+    func waitForExchange() async {
+        if response != nil { return }
+        await withCheckedContinuation { started = $0 }
+    }
+    func finishExchange() {
+        response?.resume(returning: HTTPResponse(status: 200, headers: [:], body: Data(
+            #"{"access_token":"OLD-LOGIN","refresh_token":"OLD-LOGIN-RT","expires_in":28800}"#.utf8)))
+        response = nil
+    }
+}
+
+@Test(arguments: [false, true]) @MainActor
+func browserReauth_doesNotOverwriteNewerImportOrResurrectDeletedAccount(removed: Bool) async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let body = try Data(contentsOf: #require(Bundle.module.url(forResource: "usage_full",
+                                        withExtension: "json", subdirectory: "Fixtures")))
+    let http = SuspendedBrowserExchange(usage: body)
+    let store = InMemoryTokenStore()
+    let (manager, state) = makeManager(http, store: store, snapURL: tmp)
+    let id = UUID()
+    try store.save(try ClaudeTokenImport.bundle(from: "sk-ant-oat01-initial"), for: id)
+    state.upsert(Account(id: id, label: "Work", accountUuid: nil, syncInterval: 300,
+                         status: .needsReauth, lastSnapshot: nil, lastSyncedAt: nil))
+    let pending = manager.beginLogin()!
+    let operation = Task { try await manager.reauth(id, pending, code: "CODE") }
+    await http.waitForExchange()
+    if removed {
+        manager.remove(id)
+    } else {
+        try await manager.reauthClaudeToken(id, token: "sk-ant-oat01-newer-import")
+    }
+    let expected = state.accounts
+    await http.finishExchange()
+    if removed {
+        await #expect(throws: AccountError.unknownAccount) { try await operation.value }
+        #expect(try store.load(id) == nil)
+    } else {
+        await #expect(throws: ClaudeTokenValidationError.credentialsChanged) { try await operation.value }
+        #expect(try store.load(id)?.accessToken == "sk-ant-oat01-newer-import")
+    }
+    #expect(state.accounts == expected)
 }

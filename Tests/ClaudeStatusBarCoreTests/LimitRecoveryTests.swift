@@ -136,7 +136,7 @@ private func storedToken(_ store: TokenStore, _ id: UUID, expiresAt: TimeInterva
     #expect(out == .needsReauth)
 }
 
-@Test func syncOnce_stillUnauthorizedAfterRefresh_needsReauth() async throws {
+@Test func syncOnce_stillUnauthorizedAfterRefresh_keepsGrantForRetry() async throws {
     let clock = ManualClock(.init(timeIntervalSince1970: 0))
     let store = InMemoryTokenStore()
     let id = UUID()
@@ -148,7 +148,8 @@ private func storedToken(_ store: TokenStore, _ id: UUID, expiresAt: TimeInterva
             : HTTPResponse(status: 401, headers: [:], body: Data())
     }
     let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
-    #expect(out == .needsReauth)
+    guard case .failed = out else { Issue.record("obnovený refresh grant má být zachován: \(out)"); return }
+    #expect(try store.load(id)?.refreshToken == "RT2")
 }
 
 // MARK: - Knowing when the limit lifts
