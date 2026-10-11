@@ -25,6 +25,10 @@ private actor SlowFirstHTTPClient: HTTPClient {
     var startedCount: Int { started }
 
     func send(_ request: URLRequest) async throws -> HTTPResponse {
+        if request.url?.path.hasSuffix("/oauth/token") == true {
+            return HTTPResponse(status: 200, headers: [:], body: Data(
+                #"{"access_token":"NEW-LOGIN","refresh_token":"NEW-RT","expires_in":28800}"#.utf8))
+        }
         started += 1
         if started == 1 {
             if !released { await withCheckedContinuation { waiter = $0 } }
@@ -119,13 +123,14 @@ func laterFailure_stillMarksAccountOffline() async throws {
     #expect(state.accounts.first?.status == .offline)
 }
 
-@Test @MainActor func verifiedTokenImport_survivesOldSyncFailure() async throws {
+@Test @MainActor func browserReauth_survivesOldSyncFailure() async throws {
     let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
     defer { try? FileManager.default.removeItem(at: tmp) }
     let clock = ManualClock(Date(timeIntervalSince1970: 0))
     let store = InMemoryTokenStore()
     let id = UUID()
-    try store.save(try ClaudeTokenImport.bundle(from: "sk-ant-oat01-old"), for: id)
+    try store.save(TokenBundle(accessToken: "OLD", refreshToken: "OLD-RT",
+                               expiresAt: .distantFuture, scopes: []), for: id)
     let state = AppState()
     state.upsert(Account(id: id, label: "Work", accountUuid: nil, syncInterval: 300,
                          status: .offline, lastSnapshot: nil, lastSyncedAt: nil))
@@ -139,15 +144,14 @@ func laterFailure_stillMarksAccountOffline() async throws {
                         config: .claudeCode, clock: clock), endpoints: .production,
                         config: .claudeCode, tokenStore: store, opener: SpyBrowser())
     let manager = AccountManager(appState: state, login: login, tokenStore: store,
-                                snapshotStore: SnapshotStore(fileURL: tmp),
-                                claudeValidation: ClaudeTokenValidation(usage: UsageAPIClient(http: http), clock: clock))
-    try await manager.reauthClaudeToken(id, token: "sk-ant-oat01-new")
+                                snapshotStore: SnapshotStore(fileURL: tmp))
+    try await manager.reauth(id, manager.beginLogin()!, code: "CODE")
     let verified = state.accounts[0]
     let verifiedOnDisk = try Data(contentsOf: tmp)
     await http.release()
     await background.value
     #expect(state.accounts == [verified])
-    #expect(verified.status == .ok)
+    #expect(verified.status == .never)
     #expect(try Data(contentsOf: tmp) == verifiedOnDisk)
     #expect(try SnapshotStore(fileURL: tmp).load().first?.credentialRevision == verified.credentialRevision)
 }

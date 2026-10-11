@@ -108,7 +108,7 @@ func test_tokenImportedDuringRefresh_isNotOverwrittenByOldGrant(status: Int) asy
     let store = InMemoryTokenStore()
     let id = UUID()
     try store.save(expiringBundle(), for: id)
-    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-imported")
+    let imported = TokenBundle(accessToken: "sk-ant-oat01-imported", refreshToken: "", expiresAt: .distantFuture, scopes: [])
     let body = try usageBody()
     let calls = RefreshCallCounter()
     let http = MockHTTPClient { req in
@@ -144,7 +144,7 @@ private final class RefreshCallCounter: @unchecked Sendable { var count = 0 }
     let id = UUID()
     try store.save(TokenBundle(accessToken: "OLD", refreshToken: "RT1",
                               expiresAt: .distantFuture, scopes: []), for: id)
-    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-imported")
+    let imported = TokenBundle(accessToken: "sk-ant-oat01-imported", refreshToken: "", expiresAt: .distantFuture, scopes: [])
     let http = MockHTTPClient { req in
         if req.url!.path.contains("oauth/token") {
             try store.save(imported, for: id)
@@ -229,7 +229,7 @@ private final class FailingWriteTokenStore: TokenStore, @unchecked Sendable {
     let store = InMemoryTokenStore()
     let id = UUID()
     let stale = expiringBundle()
-    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-new-import")
+    let imported = TokenBundle(accessToken: "sk-ant-oat01-new-import", refreshToken: "", expiresAt: .distantFuture, scopes: [])
     try store.save(stale, for: id)
     let http = MockHTTPClient { _ in
         try store.save(imported, for: id)
@@ -255,7 +255,7 @@ private final class FailingWriteTokenStore: TokenStore, @unchecked Sendable {
     await #expect(throws: TokenRefreshCoordinator.Failure.storeFailed("couldn't save the refreshed token")) {
         try await coordinator.refresh(stale, for: id)
     }
-    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-new-import")
+    let imported = TokenBundle(accessToken: "sk-ant-oat01-new-import", refreshToken: "", expiresAt: .distantFuture, scopes: [])
     try store.seed(imported, for: id)
     store.failWrites = false
     #expect(try await coordinator.current(id) == imported)

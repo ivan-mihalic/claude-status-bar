@@ -10,24 +10,13 @@ private enum CodexLoginMethod: String, CaseIterable, Identifiable {
     var title: String { self == .browser ? "Browser" : "Device code" }
 }
 
-private enum ClaudeLoginMethod: String, CaseIterable, Identifiable {
-    case browser
-    case oauthToken
-
-    var id: String { rawValue }
-    var title: String { self == .browser ? "Browser" : "OAuth token" }
-}
-
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var provider: Provider = .claude
     @State private var codexLoginMethod: CodexLoginMethod = .browser
-    @State private var claudeLoginMethod: ClaudeLoginMethod = .browser
     @State private var code = ""
-    @State private var oauthToken = ""
-    @State private var refreshToken = ""
     @State private var pending: PendingLogin?
     @State private var deviceLogin: DeviceCodeLogin?
     @State private var loginTask: Task<Void, Never>?
@@ -85,36 +74,10 @@ public struct AddAccountView: View {
                 }
             }
             if effectiveProvider == .claude {
-                Picker("Sign in using", selection: $claudeLoginMethod) {
-                    ForEach(ClaudeLoginMethod.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .disabled(connecting)
-                .onChange(of: claudeLoginMethod) { _, _ in resetLogin() }
-                if claudeLoginMethod == .browser {
-                    Text("Sign in once in your browser. This app keeps its own credentials in macOS Keychain and renews them automatically. Temporary sync errors keep your sign-in.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                Text("Sign in once in your browser. This app keeps its own credentials in macOS Keychain and renews them automatically. Temporary sync errors keep your sign-in.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            if effectiveProvider == .claude, claudeLoginMethod == .oauthToken {
-                SecureField("OAuth access token (sk-ant-oat01-…)", text: $oauthToken)
-                    .disabled(connecting)
-                SecureField("Matching refresh token (optional)", text: $refreshToken)
-                    .disabled(connecting)
-                Text("Usage access is verified before saving to macOS Keychain. A matching refresh token enables automatic renewal; without it, replace the access token when it expires.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("claude setup-token cannot read usage. Use an OAuth token with usage access. Do not share a rotating refresh token with another app or Claude Code.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button(connecting ? "Verifying usage access…" : "Verify and save OAuth token") {
-                    connecting = true
-                    error = nil
-                    let attempt = loginGeneration
-                    loginTask = Task { await importToken(attempt: attempt) }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(oauthToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
-                if connecting { Button("Cancel") { resetLogin() } }
-            } else if let deviceLogin {
+            if let deviceLogin {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Enter this one-time code:").font(.caption).foregroundStyle(.secondary)
                     Text(deviceLogin.userCode)
@@ -164,26 +127,6 @@ public struct AddAccountView: View {
 
     private var effectiveProvider: Provider {
         reauthAccount?.effectiveProvider ?? provider
-    }
-
-    private func importToken(attempt: UUID) async {
-        guard attempt == loginGeneration else { return }
-        defer { if attempt == loginGeneration { connecting = false } }
-        do {
-            if let id = router.reauthTarget {
-                try await env.accountManager.reauthClaudeToken(id, token: oauthToken, refreshToken: refreshToken)
-            } else {
-                let name = label.isEmpty ? "Claude account" : label
-                _ = try await env.accountManager.addClaudeToken(oauthToken, refreshToken: refreshToken, label: name,
-                                                          interval: defaultInterval)
-            }
-            guard attempt == loginGeneration, !Task.isCancelled else { return }
-            finishSuccessfully()
-        } catch is CancellationError {
-        } catch {
-            guard attempt == loginGeneration else { return }
-            self.error = Redaction.redact(error.localizedDescription)
-        }
     }
 
     private func start() {
@@ -269,13 +212,13 @@ public struct AddAccountView: View {
     private func finishSuccessfully() {
         env.syncCoordinator.start()
         loginTask = nil; pending = nil; deviceLogin = nil
-        code = ""; oauthToken = ""; refreshToken = ""; label = ""; error = nil
+        code = ""; label = ""; error = nil
         router.show(.dashboard)
     }
 
     private func resetLogin() {
         loginGeneration = UUID()
         loginTask?.cancel(); loginTask = nil
-        pending = nil; deviceLogin = nil; code = ""; oauthToken = ""; refreshToken = ""; error = nil; connecting = false
+        pending = nil; deviceLogin = nil; code = ""; error = nil; connecting = false
     }
 }

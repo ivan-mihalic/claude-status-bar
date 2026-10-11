@@ -58,7 +58,7 @@ four entitlements — nothing else is requested:
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
    .loopback`), is started only when a Codex sign-in begins, answers a single request, and is
    torn down as soon as the code arrives, the attempt is cancelled, or it times out (5 minutes).
-   It is never running at rest and is not used by Claude browser sign-in or token import. If you only use Claude accounts, nothing in the app ever opens
+   It is never running at rest and is not used by Claude browser sign-in. If you only use Claude accounts, nothing in the app ever opens
    a socket to listen on.
 4. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
    names — `cz.mihalic.claude-status-bar-spks` and `cz.mihalic.claude-status-bar-spki`. This is
@@ -77,16 +77,12 @@ Claude browser OAuth používá PKCE a uloží vlastní grant do Keychain. Volit
 callback odpovědi se porovnává s konkrétním přihlášením. Zrušení před dokončením zabrání zápisu;
 manager také kontroluje, zda účet mezitím nezmizel nebo nemá novější credentials.
 
-Ruční import Claude OAuth tokenu neotevírá prohlížeč. Access token se nejprve ověří pouze
-čtením usage endpointu; neúspěšné ověření nemění uložené credentials. Access token a volitelný
-odpovídající refresh token se poté ukládají výhradně do vlastního Keychain. Access token se
-posílá v bearer hlavičce na usage endpoint. Refresh token se posílá pouze OAuth token hostům
-při obnově. Skrytá pole se vyčistí při úspěchu, zrušení, změně providera i opuštění formuláře.
-Účetní snapshot tokeny neobsahuje. Import nevytváří nový nezávislý grant a nečte credentials
-jiných aplikací; rotující refresh grant musí mít jediného vlastníka.
+Access a refresh tokeny získané browser OAuth se ukládají pouze do vlastního Keychain.
+Access token se posílá v bearer hlavičce na usage endpoint, refresh token pouze OAuth token
+hostům při obnově. Účetní snapshot tokeny neobsahuje. Aplikace nečte credentials jiných aplikací.
 
 Zápis do Keychain aktualizuje původní položku bez předchozího mazání. Podmíněné přepsání
-chrání nový import před starou obnovou. Zámek `instance.lock` ve vlastním Application Support
+chrání novější přihlášení před starou obnovou. Zámek `instance.lock` ve vlastním Application Support
 brání dvěma aktualizovaným kopiím aplikace současně obnovovat stejný grant; zámek se uvolní i při pádu procesu.
 
 The app only contacts the selected provider's authentication and usage hosts, plus its own
