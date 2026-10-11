@@ -50,7 +50,8 @@ public enum SyncScheduler {
             return min(max(untilRetry, backoffDelay), maxRateLimitedInterval)
         default:
             let interval = TimeInterval(base)
-                * adaptiveMultiplier(utilization: utilization)
+                // Po výpadku nechceme čekat déle jen kvůli starým nízkým číslům.
+                * (status == .offline ? 1 : adaptiveMultiplier(utilization: utilization))
                 * max(energyMultiplier, 1)
             // The cap never shortens a user who deliberately asked for a long interval.
             return min(interval, max(TimeInterval(base), maxAdaptiveInterval))

@@ -6,7 +6,8 @@ import Sparkle
 @main
 struct ClaudeStatusBarMain: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var env = AppEnvironment()
+    @State private var env: AppEnvironment
+    private let instanceLock: SingleInstanceLock
     @State private var router = AppRouter()
     @AppStorage("menuBarShowAccountPercents") private var showAccountPercents = false
     @AppStorage("showNotchPanel") private var showNotchPanel = false
@@ -102,6 +103,21 @@ struct ClaudeStatusBarMain: App {
     }
 
     init() {
+        do { instanceLock = try SingleInstanceLock(fileURL: SingleInstanceLock.defaultURL()) }
+        catch SingleInstanceLockError.alreadyRunning {
+            let identifier = Bundle.main.bundleIdentifier ?? "cz.mihalic.claude-status-bar"
+            NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+                .first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }?
+                .activate(options: [])
+            exit(0)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Cannot start safely"
+            alert.informativeText = "The application could not acquire its instance lock. Quit other copies and try again."
+            alert.runModal()
+            exit(1)
+        }
+        _env = State(initialValue: AppEnvironment())
         // Before anything reads the settings: moves the old single "rings at rest" switch
         // onto the two per-display ones, once, without touching either if they already exist.
         NotchSettingsMigration.apply(to: .standard)

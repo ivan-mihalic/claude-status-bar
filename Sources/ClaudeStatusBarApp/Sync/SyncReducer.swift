@@ -18,6 +18,7 @@ public enum SyncReducer {
         // other trace, and without one a manual sync on an unreachable account changes
         // nothing the user can see.
         s.account.lastAttemptAt = now
+        s.account.lastSyncError = nil
         switch outcome {
         case .success(let snap):
             s.account.status = .ok
@@ -42,8 +43,12 @@ public enum SyncReducer {
         case .needsReauth:
             s.account.status = .needsReauth
             s.consecutiveRateLimits = 0
-        case .offline, .failed:
+        case .offline:
             s.account.status = .offline
+            s.consecutiveRateLimits = 0
+        case .failed(let reason):
+            s.account.status = .offline
+            s.account.lastSyncError = Redaction.redact(reason)
             s.consecutiveRateLimits = 0
         }
         return s

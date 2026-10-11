@@ -10,26 +10,18 @@ private enum CodexLoginMethod: String, CaseIterable, Identifiable {
     var title: String { self == .browser ? "Browser" : "Device code" }
 }
 
-private enum ClaudeLoginMethod: String, CaseIterable, Identifiable {
-    case browser
-    case oauthToken
-
-    var id: String { rawValue }
-    var title: String { self == .browser ? "Browser" : "OAuth token" }
-}
-
 public struct AddAccountView: View {
     @Bindable var env: AppEnvironment
     @Environment(AppRouter.self) private var router
     @AppStorage("defaultIntervalSeconds") private var defaultInterval = 300
     @State private var provider: Provider = .claude
     @State private var codexLoginMethod: CodexLoginMethod = .browser
-    @State private var claudeLoginMethod: ClaudeLoginMethod = .browser
     @State private var oauthToken = ""
+    @State private var refreshToken = ""
     @State private var pending: PendingLogin?
     @State private var deviceLogin: DeviceCodeLogin?
     @State private var loginTask: Task<Void, Never>?
-    @State private var code = ""
+    @State private var loginGeneration = UUID()
     @State private var label = ""
     @State private var error: String?
     @State private var connecting = false
@@ -45,7 +37,7 @@ public struct AddAccountView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let acct = reauthAccount {
-                Text("Sign in again").font(.title3.bold())
+                Text(acct.effectiveProvider == .claude ? "Replace OAuth credentials" : "Sign in again").font(.title3.bold())
                 Text("Reconnecting “\(acct.label)”. Its name, menu label, interval and "
                      + "position stay as they are — only the credentials are replaced.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -83,22 +75,23 @@ public struct AddAccountView: View {
                 }
             }
             if effectiveProvider == .claude {
-                Picker("Sign in using", selection: $claudeLoginMethod) {
-                    ForEach(ClaudeLoginMethod.allCases) { Text($0.title).tag($0) }
+                SecureField("OAuth access token (sk-ant-oat01-…)", text: $oauthToken)
+                    .disabled(connecting)
+                SecureField("Matching refresh token (optional)", text: $refreshToken)
+                    .disabled(connecting)
+                Text("Usage access is verified before saving to macOS Keychain. A matching refresh token enables automatic renewal; without it, replace the access token when it expires.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("claude setup-token cannot read usage. Use an OAuth token with usage access. Do not share a rotating refresh token with another app or Claude Code.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button(connecting ? "Verifying usage access…" : "Verify and save OAuth token") {
+                    connecting = true
+                    error = nil
+                    let attempt = loginGeneration
+                    loginTask = Task { await importToken(attempt: attempt) }
                 }
-                .pickerStyle(.segmented)
-                .disabled(connecting)
-                .onChange(of: claudeLoginMethod) { _, _ in resetLogin() }
-            }
-            if effectiveProvider == .claude, claudeLoginMethod == .oauthToken {
-                SecureField("Paste OAuth token (sk-ant-oat01-…)", text: $oauthToken)
-                Text("The token is stored in macOS Keychain and used until Claude rejects it. Its lifetime depends on when it was issued.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("Tokens from claude setup-token last about a year but may lack user:profile permission required to read usage.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("Use OAuth token") { importToken() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(oauthToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
+                .buttonStyle(.borderedProminent)
+                .disabled(oauthToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
+                if connecting { Button("Cancel") { resetLogin() } }
             } else if let deviceLogin {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Enter this one-time code:").font(.caption).foregroundStyle(.secondary)
@@ -117,13 +110,6 @@ public struct AddAccountView: View {
                 Button("Sign in with \(effectiveProvider.title)…") { start() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!effectiveProvider.isSupported || connecting)
-            } else if usesPastedCode {
-                Text("A browser opened. After signing in, copy the code shown on the callback page and paste it here.")
-                    .font(.caption).foregroundStyle(.secondary)
-                TextField("Paste authorization code", text: $code)
-                Button(connecting ? "Connecting…" : "Connect") { Task { await connect() } }
-                    .disabled(code.isEmpty || connecting).buttonStyle(.borderedProminent)
-                Button("Start over") { pending = nil; code = ""; error = nil }
             } else {
                 // Codex redirects to a local address instead of showing a code, so there is
                 // nothing to paste — the app is waiting for the browser to come back.
@@ -138,32 +124,31 @@ public struct AddAccountView: View {
         }
         .padding(20).frame(width: 380)
         .onAppear { resetLogin() }
-        .onDisappear { loginTask?.cancel(); oauthToken = "" }
+        .onDisappear { loginTask?.cancel(); oauthToken = ""; refreshToken = "" }
     }
 
     private var effectiveProvider: Provider {
         reauthAccount?.effectiveProvider ?? provider
     }
 
-    private func importToken() {
-        connecting = true
-        defer { connecting = false }
+    private func importToken(attempt: UUID) async {
+        guard attempt == loginGeneration else { return }
+        defer { if attempt == loginGeneration { connecting = false } }
         do {
             if let acct = reauthAccount {
-                try env.accountManager.reauthClaudeToken(acct.id, token: oauthToken)
+                try await env.accountManager.reauthClaudeToken(acct.id, token: oauthToken, refreshToken: refreshToken)
             } else {
                 let name = label.isEmpty ? "Claude account" : label
-                _ = try env.accountManager.addClaudeToken(oauthToken, label: name,
+                _ = try await env.accountManager.addClaudeToken(oauthToken, refreshToken: refreshToken, label: name,
                                                           interval: defaultInterval)
             }
+            guard attempt == loginGeneration, !Task.isCancelled else { return }
             finishSuccessfully()
-        } catch { self.error = Redaction.redact(error.localizedDescription) }
-    }
-
-    /// Anthropic shows the code on a web page; Codex redirects to a loopback address the app
-    /// listens on. The difference is visible here and nowhere else.
-    private var usesPastedCode: Bool {
-        (pending?.provider ?? provider) == .claude
+        } catch is CancellationError {
+        } catch {
+            guard attempt == loginGeneration else { return }
+            self.error = Redaction.redact(error.localizedDescription)
+        }
     }
 
     private func start() {
@@ -181,9 +166,7 @@ public struct AddAccountView: View {
         pending = started
         // Read the provider off the pending login rather than the @State picker: for a
         // re-sign-in the picker isn't even shown, and it would still say "Claude".
-        if started.provider != .claude {
-            loginTask = Task { await connect() }
-        }
+        loginTask = Task { await connect() }
     }
 
     @MainActor
@@ -215,14 +198,7 @@ public struct AddAccountView: View {
         do {
             let name = label.isEmpty ? "\(pending.provider.title) account" : label
             if let acct = reauthAccount {
-                if usesPastedCode {
-                    try await env.accountManager.reauth(acct.id, pending, code: code)
-                } else {
-                    try await env.accountManager.reauth(acct.id, pending)
-                }
-            } else if usesPastedCode {
-                _ = try await env.accountManager.finishAdd(pending, code: code,
-                        label: name, interval: defaultInterval)
+                try await env.accountManager.reauth(acct.id, pending)
             } else {
                 _ = try await env.accountManager.finishAdd(pending, label: name,
                                                            interval: defaultInterval)
@@ -235,12 +211,13 @@ public struct AddAccountView: View {
     private func finishSuccessfully() {
         env.syncCoordinator.start()
         loginTask = nil; pending = nil; deviceLogin = nil
-        code = ""; oauthToken = ""; label = ""; error = nil
+        oauthToken = ""; refreshToken = ""; label = ""; error = nil
         router.show(.dashboard)
     }
 
     private func resetLogin() {
+        loginGeneration = UUID()
         loginTask?.cancel(); loginTask = nil
-        pending = nil; deviceLogin = nil; code = ""; oauthToken = ""; error = nil; connecting = false
+        pending = nil; deviceLogin = nil; oauthToken = ""; refreshToken = ""; error = nil; connecting = false
     }
 }

@@ -118,3 +118,36 @@ func laterFailure_stillMarksAccountOffline() async throws {
     await c.syncNow(id)
     #expect(state.accounts.first?.status == .offline)
 }
+
+@Test @MainActor func verifiedTokenImport_survivesOldSyncFailure() async throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("csb-\(UUID()).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let clock = ManualClock(Date(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    try store.save(try ClaudeTokenImport.bundle(from: "sk-ant-oat01-old"), for: id)
+    let state = AppState()
+    state.upsert(Account(id: id, label: "Work", accountUuid: nil, syncInterval: 300,
+                         status: .offline, lastSnapshot: nil, lastSyncedAt: nil))
+    let body = try Data(contentsOf: #require(Bundle.module.url(forResource: "usage_full",
+                                    withExtension: "json", subdirectory: "Fixtures")))
+    let http = SlowFirstHTTPClient(body: body)
+    let c = coordinator(http, state, store, clock, tmp)
+    let background = Task { await c.syncNow(id) }
+    while await http.startedCount == 0 { await Task.yield() }
+    let login = OAuthLoginService(oauth: OAuthClient(http: http, endpoints: .production,
+                        config: .claudeCode, clock: clock), endpoints: .production,
+                        config: .claudeCode, tokenStore: store, opener: SpyBrowser())
+    let manager = AccountManager(appState: state, login: login, tokenStore: store,
+                                snapshotStore: SnapshotStore(fileURL: tmp),
+                                claudeValidation: ClaudeTokenValidation(usage: UsageAPIClient(http: http), clock: clock))
+    try await manager.reauthClaudeToken(id, token: "sk-ant-oat01-new")
+    let verified = state.accounts[0]
+    let verifiedOnDisk = try Data(contentsOf: tmp)
+    await http.release()
+    await background.value
+    #expect(state.accounts == [verified])
+    #expect(verified.status == .ok)
+    #expect(try Data(contentsOf: tmp) == verifiedOnDisk)
+    #expect(try SnapshotStore(fileURL: tmp).load().first?.credentialRevision == verified.credentialRevision)
+}

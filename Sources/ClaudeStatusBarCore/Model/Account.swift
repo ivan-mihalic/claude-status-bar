@@ -45,13 +45,17 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
     /// Optional user-selected colour for both usage arcs in the notch. `nil` retains the
     /// automatic green/yellow/red utilisation colours used by older saved accounts.
     public var ringColor: AccountRingColor?
+    /// Bezpečný popis posledního selhání; nil pro starší uložené účty.
+    public var lastSyncError: String?
+    /// Odděluje výsledky požadavků zahájených před výměnou přihlašovacích údajů.
+    public var credentialRevision: UUID?
 
     public init(id: UUID, label: String, accountUuid: String?,
                 syncInterval: Int, status: AccountStatus,
                 lastSnapshot: UsageSnapshot?, lastSyncedAt: Date?,
                 menuBarPrefix: String? = nil, showInNotch: Bool? = nil,
                 showInMenuBar: Bool? = nil, provider: Provider? = nil,
-                lastAttemptAt: Date? = nil, ringColor: AccountRingColor? = nil) {
+                lastAttemptAt: Date? = nil, ringColor: AccountRingColor? = nil, lastSyncError: String? = nil, credentialRevision: UUID? = nil) {
         self.id = id; self.label = label; self.accountUuid = accountUuid
         self.syncInterval = syncInterval; self.status = status
         self.lastSnapshot = lastSnapshot; self.lastSyncedAt = lastSyncedAt
@@ -61,6 +65,8 @@ public struct Account: Identifiable, Codable, Equatable, Sendable {
         self.showInMenuBar = showInMenuBar
         self.provider = provider
         self.ringColor = ringColor
+        self.lastSyncError = lastSyncError
+        self.credentialRevision = credentialRevision
     }
 
     public var effectiveInterval: Int { max(syncInterval, Self.intervalFloor) }

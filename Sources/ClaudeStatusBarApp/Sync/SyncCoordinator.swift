@@ -39,6 +39,7 @@ public final class SyncCoordinator {
         issued[id] = mySeq
         // The provider is read before the await: an account edited mid-flight must not have
         // its numbers fetched from the wrong service.
+        let credentialRevision = appState.accounts.first { $0.id == id }?.credentialRevision
         let provider = appState.accounts.first { $0.id == id }?.effectiveProvider ?? .claude
         let outcome = await engine.syncOnce(accountID: id, provider: provider)
         // Re-fetch after the await: the account may have been removed (or its
@@ -49,6 +50,7 @@ public final class SyncCoordinator {
             if mySeq == issued[id] { counters[id] = nil; issued[id] = nil; applied[id] = nil }
             return
         }
+        guard account.credentialRevision == credentialRevision else { return }
         // A newer sync already landed, so this outcome describes a state that has been
         // superseded — drop it whole, counter included, rather than half-applying it.
         guard mySeq > (applied[id] ?? 0) else { return }

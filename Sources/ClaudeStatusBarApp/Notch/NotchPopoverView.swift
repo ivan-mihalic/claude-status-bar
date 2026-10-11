@@ -39,8 +39,8 @@ public struct NotchPopoverView: View {
     private var statusNote: String? {
         switch model.badge {
         case .none:        return nil
-        case .offline:     return "Offline — these numbers may be out of date"
-        case .signIn:      return "Sign in again to refresh"
+        case .offline:     return model.lastSyncError == nil ? "Offline — these numbers may be out of date" : "Usage unavailable — last known values"
+        case .signIn:      return model.provider == .claude ? "Replace the OAuth token to refresh" : "Sign in again to refresh"
         case .rateLimited: return "Rate limited — retrying later"
         case .syncing:     return "Syncing…"
         }
@@ -71,6 +71,7 @@ public struct NotchPopoverView: View {
 
             if let statusNote {
                 Text(statusNote).font(.caption2).foregroundStyle(.orange)
+                    .help(model.lastSyncError ?? statusNote)
             }
 
             HStack(spacing: 6) {

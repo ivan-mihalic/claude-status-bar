@@ -223,3 +223,41 @@ private final class FailingWriteTokenStore: TokenStore, @unchecked Sendable {
     let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
     #expect(out == .needsReauth)
 }
+
+@Test func test_failedOldRefreshUsesNewlyImportedCredentials() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = InMemoryTokenStore()
+    let id = UUID()
+    let stale = expiringBundle()
+    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-new-import")
+    try store.save(stale, for: id)
+    let http = MockHTTPClient { _ in
+        try store.save(imported, for: id)
+        return HTTPResponse(status: 400, headers: [:], body: Data(#"{"error":"invalid_grant"}"#.utf8))
+    }
+    let coordinator = TokenRefreshCoordinator(oauth: OAuthClient(http: http, endpoints: .production,
+                                                               config: .claudeCode, clock: clock), store: store)
+    #expect(try await coordinator.refresh(stale, for: id) == imported)
+}
+
+@Test func test_pendingRotatedGrantCannotOverwriteLaterImport() async throws {
+    let clock = ManualClock(.init(timeIntervalSince1970: 0))
+    let store = FailingWriteTokenStore()
+    let id = UUID()
+    let stale = expiringBundle()
+    try store.seed(stale, for: id)
+    let http = MockHTTPClient { _ in
+        HTTPResponse(status: 200, headers: [:], body: Data(
+            #"{"access_token":"ROTATED","refresh_token":"RT2","expires_in":28800}"#.utf8))
+    }
+    let coordinator = TokenRefreshCoordinator(oauth: OAuthClient(http: http, endpoints: .production,
+                                                               config: .claudeCode, clock: clock), store: store)
+    await #expect(throws: TokenRefreshCoordinator.Failure.storeFailed("couldn't save the refreshed token")) {
+        try await coordinator.refresh(stale, for: id)
+    }
+    let imported = try ClaudeTokenImport.bundle(from: "sk-ant-oat01-new-import")
+    try store.seed(imported, for: id)
+    store.failWrites = false
+    #expect(try await coordinator.current(id) == imported)
+    #expect(try store.load(id) == imported)
+}

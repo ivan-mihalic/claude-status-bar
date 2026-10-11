@@ -95,14 +95,15 @@ private func storedToken(_ store: TokenStore, _ id: UUID, expiresAt: TimeInterva
     #expect(out == .rateLimited(retryAfter: 600))
 }
 
-@Test func syncOnce_forbidden_isRateLimited_andNeverRefreshesTheToken() async throws {
+@Test func syncOnce_forbidden_reportsPermission_andNeverRefreshesTheToken() async throws {
     let clock = ManualClock(.init(timeIntervalSince1970: 0))
     let store = InMemoryTokenStore()
     let id = UUID()
     try storedToken(store, id)
     let http = MockHTTPClient { _ in HTTPResponse(status: 403, headers: [:], body: Data()) }
     let out = await engine(http, clock: clock, store: store).syncOnce(accountID: id)
-    #expect(out == .rateLimited(retryAfter: nil))
+    guard case .failed(let reason) = out else { Issue.record("očekávána chyba oprávnění: \(out)"); return }
+    #expect(reason.contains("HTTP 403"))
     // 403 is a permission decision, not a stale token: burning a refresh (and the
     // rotated refresh token that comes with it) on every poll is what eventually
     // broke the grant for real.

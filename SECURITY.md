@@ -58,8 +58,7 @@ four entitlements — nothing else is requested:
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
    .loopback`), is started only when a Codex sign-in begins, answers a single request, and is
    torn down as soon as the code arrives, the attempt is cancelled, or it times out (5 minutes).
-   It is never running at rest, and it is not used by the Anthropic sign-in, which shows the
-   code on a web page instead. If you only use Claude accounts, nothing in the app ever opens
+   It is never running at rest and is not used by Claude token import. If you only use Claude accounts, nothing in the app ever opens
    a socket to listen on.
 4. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
    names — `cz.mihalic.claude-status-bar-spks` and `cz.mihalic.claude-status-bar-spki`. This is
@@ -74,21 +73,24 @@ your files, cannot see other apps' containers, and cannot read Claude Code's loc
 
 ## Network endpoints contacted
 
-Ruční import Claude OAuth tokenu neotevírá prohlížeč a neposílá token na exchange ani refresh
-endpoint. Token je ve skrytém poli pouze po dobu vyplňování formuláře, pak se ukládá do Keychain
-a posílá pouze v bearer hlavičce na usage endpoint. Pole se vyčistí při úspěchu, přepnutí metody
-i opuštění formuláře. Účetní snapshot token neobsahuje. Import nevytváří nový nezávislý grant:
-používá přímo token vložený uživatelem a nečte credentials jiných aplikací.
+Ruční import Claude OAuth tokenu neotevírá prohlížeč. Access token se nejprve ověří pouze
+čtením usage endpointu; neúspěšné ověření nemění uložené credentials. Access token a volitelný
+odpovídající refresh token se poté ukládají výhradně do vlastního Keychain. Access token se
+posílá v bearer hlavičce na usage endpoint. Refresh token se posílá pouze OAuth token hostům
+při obnově. Skrytá pole se vyčistí při úspěchu, zrušení, změně providera i opuštění formuláře.
+Účetní snapshot tokeny neobsahuje. Import nevytváří nový nezávislý grant a nečte credentials
+jiných aplikací; rotující refresh grant musí mít jediného vlastníka.
+
+Zápis do Keychain aktualizuje původní položku bez předchozího mazání. Podmíněné přepsání
+chrání nový import před starou obnovou. Zámek `instance.lock` ve vlastním Application Support
+brání dvěma aktualizovaným kopiím aplikace současně obnovovat stejný grant; zámek se uvolní i při pádu procesu.
 
 The app only contacts the selected provider's authentication and usage hosts, plus its own
 Sparkle update host, over HTTPS:
 
-- **`claude.ai`** (`https://claude.ai/oauth/authorize`) — where your **default browser** (not an
-  embedded webview) opens for the OAuth sign-in itself, when you click **Sign in with Claude…**.
-- **The OAuth token host** — the app exchanges the authorization code for tokens against
-  `https://platform.claude.com/v1/oauth/token`, falling back to
-  `https://console.anthropic.com/v1/oauth/token` if the first host is unreachable (see
-  `Sources/ClaudeStatusBarCore/OAuth/OAuthEndpoints.swift`).
+- **OAuth token hosty** — obnova Claude tokenů používá `https://platform.claude.com/v1/oauth/token`
+  a záložní `https://console.anthropic.com/v1/oauth/token` (viz
+  `Sources/ClaudeStatusBarCore/OAuth/OAuthEndpoints.swift`). Claude UI nevytváří browser login.
 - **`api.anthropic.com/api/oauth/usage`** — polled periodically with a **read-only `GET`**
   request, authenticated with your account's OAuth bearer token, to fetch your current
   session/week/premium-week usage numbers (see

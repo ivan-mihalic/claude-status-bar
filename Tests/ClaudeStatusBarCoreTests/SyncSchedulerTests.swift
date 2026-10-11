@@ -33,3 +33,10 @@ import Foundation
         consecutiveRateLimits: 3, now: now)
     #expect(dt == 120)
 }
+
+@Test func test_offlineRecoveryDoesNotSlowDownBecauseLastUsageWasLow() {
+    let delay = SyncScheduler.nextInterval(base: 300, status: .offline,
+                                          consecutiveRateLimits: 0,
+                                          now: Date(timeIntervalSince1970: 0), utilization: 4)
+    #expect(delay == 300)
+}

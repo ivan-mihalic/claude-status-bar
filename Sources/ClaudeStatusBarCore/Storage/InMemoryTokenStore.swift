@@ -11,6 +11,12 @@ public final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
     public func load(_ id: UUID) throws -> TokenBundle? {
         lock.lock(); defer { lock.unlock() }; return storage[id]
     }
+    public func replace(_ bundle: TokenBundle, for id: UUID, matching previous: TokenBundle?) throws -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard storage[id] == previous else { return false }
+        storage[id] = bundle
+        return true
+    }
     public func delete(_ id: UUID) throws {
         lock.lock(); defer { lock.unlock() }; storage[id] = nil
     }

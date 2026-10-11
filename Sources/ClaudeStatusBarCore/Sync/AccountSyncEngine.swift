@@ -101,14 +101,14 @@ public struct AccountSyncEngine {
                         // — a limit, a refusal, a 500 — must keep its own meaning, or
                         // running out of quota shows up as "sign in again".
                         return outcome(for: retryError, fallback: .needsReauth,
-                                       provider: provider, canRefresh: !refreshed.refreshToken.isEmpty)
+                                       provider: provider)
                     }
                 case .rejected:             return .needsReauth
                 case .unreachable:          return .offline
                 case .storeFailed(let why): return .failed(why)
                 }
             }
-            return outcome(for: e, fallback: .offline, provider: provider, canRefresh: canRefresh)
+            return outcome(for: e, fallback: .offline, provider: provider)
         } catch {
             return .offline   // network/URLError
         }
@@ -116,15 +116,15 @@ public struct AccountSyncEngine {
 
     /// Maps a usage-fetch failure to its outcome. `fallback` covers a repeat 401.
     private func outcome(for error: Error, fallback: SyncOutcome,
-                         provider: Provider, canRefresh: Bool) -> SyncOutcome {
+                         provider: Provider) -> SyncOutcome {
         guard let e = error as? UsageAPIError else { return .offline }
         switch e {
         case .rateLimited(let retryAfter): return .rateLimited(retryAfter: retryAfter)
         // 403 is a refusal, not a bad token; treat it as a temporary block so the app
         // keeps retrying on its own instead of demanding credentials it already has.
         case .forbidden:
-            if provider == .claude, !canRefresh {
-                return .failed("Claude refused usage access for this OAuth token. It may lack user:profile permission. Tokens from claude setup-token only support model requests; use a token with usage access or browser sign-in.")
+            if provider == .claude {
+                return .failed("Claude refused usage access (HTTP 403). The OAuth token needs user:profile usage permission; claude setup-token only supports model requests. Refreshing cannot add permission.")
             }
             return .rateLimited(retryAfter: nil)
         case .server:                      return .offline

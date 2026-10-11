@@ -85,3 +85,16 @@ private func snap(_ s: Double) -> UsageSnapshot {
     #expect(out.account.lastSnapshot?.session?.utilization == 50)
     #expect(out.consecutiveRateLimits == 1)
 }
+
+@Test func reduce_failurePreservesSnapshotAndRecordsReasonUntilSuccess() {
+    let now = Date(timeIntervalSince1970: 1000)
+    var account = acct()
+    account.lastSnapshot = snap(42)
+    let failed = SyncReducer.reduce(SyncState(account: account, consecutiveRateLimits: 0),
+                                    outcome: .failed("Claude refused usage access (HTTP 403)."), now: now)
+    #expect(failed.account.lastSnapshot == account.lastSnapshot)
+    #expect(failed.account.lastSyncError == "Claude refused usage access (HTTP 403).")
+    #expect(NotchModel.ring(for: failed.account).lastSyncError == failed.account.lastSyncError)
+    let succeeded = SyncReducer.reduce(failed, outcome: .success(snap(43)), now: now.addingTimeInterval(1))
+    #expect(succeeded.account.lastSyncError == nil)
+}

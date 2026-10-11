@@ -14,11 +14,13 @@ public final class AccountManager {
     private let login: OAuthLoginService
     private let tokenStore: TokenStore
     private let snapshotStore: SnapshotStore
+    private let claudeValidation: ClaudeTokenValidation
 
     public init(appState: AppState, login: OAuthLoginService, tokenStore: TokenStore,
-                snapshotStore: SnapshotStore) {
+                snapshotStore: SnapshotStore, claudeValidation: ClaudeTokenValidation) {
         self.appState = appState; self.login = login; self.tokenStore = tokenStore
         self.snapshotStore = snapshotStore
+        self.claudeValidation = claudeValidation
     }
 
     /// Opens the browser and returns the pending PKCE login. Used both when adding a
@@ -30,24 +32,47 @@ public final class AccountManager {
         login.begin(provider: provider)
     }
 
-    public func addClaudeToken(_ token: String, label: String,
-                               interval: Int = Account.intervalDefault) throws -> Account {
-        let bundle = try ClaudeTokenImport.bundle(from: token)
+    public func addClaudeToken(_ token: String, refreshToken: String = "", label: String,
+                               interval: Int = Account.intervalDefault) async throws -> Account {
+        let bundle = try ClaudeTokenImport.bundle(from: token, refreshToken: refreshToken)
+        let snapshot = try await claudeValidation.verify(bundle)
+        try Task.checkCancellation()
         let id = UUID()
         try tokenStore.save(bundle, for: id)
-        return register(id: id, label: label, interval: interval, provider: .claude)
+        var account = register(id: id, label: label, interval: interval, provider: .claude)
+        applyVerified(snapshot, to: &account)
+        return account
     }
 
-    public func reauthClaudeToken(_ id: UUID, token: String) throws {
-        guard var account = appState.accounts.first(where: { $0.id == id }) else {
+    public func reauthClaudeToken(_ id: UUID, token: String,
+                                  refreshToken: String = "") async throws {
+        guard let account = appState.accounts.first(where: { $0.id == id }) else {
             throw AccountError.unknownAccount
         }
         guard account.effectiveProvider == .claude else {
             throw ClaudeTokenImportError.wrongProvider
         }
-        let bundle = try ClaudeTokenImport.bundle(from: token)
-        try tokenStore.save(bundle, for: id)
-        account.status = .never
+        let bundle = try ClaudeTokenImport.bundle(from: token, refreshToken: refreshToken)
+        let previous = try tokenStore.load(id)
+        let snapshot = try await claudeValidation.verify(bundle)
+        try Task.checkCancellation()
+        // Účet mohl během ověřování zmizet nebo se změnit v jiném okně.
+        guard var current = appState.accounts.first(where: { $0.id == id }) else {
+            throw AccountError.unknownAccount
+        }
+        guard try tokenStore.replace(bundle, for: id, matching: previous) else {
+            throw ClaudeTokenValidationError.credentialsChanged
+        }
+        applyVerified(snapshot, to: &current)
+    }
+
+    private func applyVerified(_ snapshot: UsageSnapshot, to account: inout Account) {
+        account.credentialRevision = UUID()
+        account.status = .ok
+        account.lastSyncError = nil
+        account.lastSnapshot = snapshot
+        account.lastSyncedAt = snapshot.fetchedAt
+        account.lastAttemptAt = snapshot.fetchedAt
         appState.upsert(account)
         persist()
     }
@@ -122,6 +147,7 @@ public final class AccountManager {
             try? tokenStore.delete(id)
             throw AccountError.unknownAccount
         }
+        account.credentialRevision = UUID()
         account.status = .never          // "syncing…" until the first fetch lands
         appState.upsert(account)
         persist()

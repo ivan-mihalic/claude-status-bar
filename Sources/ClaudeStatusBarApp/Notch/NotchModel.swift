@@ -31,19 +31,21 @@ public struct RingModel: Identifiable, Equatable, Sendable {
     /// Without this a failed manual sync changes nothing on screen.
     public let lastAttemptAt: Date?
     public let lastAttemptFailed: Bool
+    public let lastSyncError: String?
 
     public init(id: UUID, label: String, prefix: String?, weekPercent: Double?,
                 sessionPercent: Double?, level: IndicatorLevel, badge: RingBadge?,
                 windows: [UsageWindow], provider: Provider = .claude,
                 ringColor: AccountRingColor? = nil,
                 lastSyncedAt: Date? = nil, lastAttemptAt: Date? = nil,
-                lastAttemptFailed: Bool = false) {
+                lastAttemptFailed: Bool = false, lastSyncError: String? = nil) {
         self.id = id; self.label = label; self.prefix = prefix
         self.weekPercent = weekPercent; self.sessionPercent = sessionPercent
         self.level = level; self.badge = badge; self.windows = windows
         self.provider = provider; self.lastSyncedAt = lastSyncedAt
         self.ringColor = ringColor
         self.lastAttemptAt = lastAttemptAt; self.lastAttemptFailed = lastAttemptFailed
+        self.lastSyncError = lastSyncError
     }
 }
 
@@ -77,7 +79,8 @@ public enum NotchModel {
                          ringColor: account.ringColor,
                          lastSyncedAt: account.lastSyncedAt,
                          lastAttemptAt: account.lastAttemptAt,
-                         lastAttemptFailed: account.lastAttemptFailed)
+                         lastAttemptFailed: account.lastAttemptFailed,
+                         lastSyncError: account.lastSyncError)
     }
 
     /// Exhaustive on purpose: a status added later breaks the build here rather than

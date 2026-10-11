@@ -37,7 +37,7 @@ public struct AccountRowView: View {
             Label("retry \(Format.resetCountdown(to: retryAt, now: now).replacingOccurrences(of: "resets ", with: ""))",
                   systemImage: "clock.badge.exclamationmark").foregroundStyle(.orange)
         case .needsReauth:   Label("sign in", systemImage: "person.badge.key").foregroundStyle(.red)
-        case .offline:       Label("offline", systemImage: "wifi.slash").foregroundStyle(.secondary)
+        case .offline:       Label(account.lastSyncError == nil ? "offline" : "usage unavailable", systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
         case .never:         Label("syncing…", systemImage: "arrow.triangle.2.circlepath").foregroundStyle(.secondary)
         }
     }
@@ -70,6 +70,10 @@ public struct AccountRowView: View {
                 Spacer()
                 statusBadge.font(.caption)
                 if let reorder { reorderButtons(reorder) }
+            }
+            if let reason = account.lastSyncError {
+                Text(reason).font(.caption).foregroundStyle(.orange)
+                    .textSelection(.enabled)
             }
             if let snap = account.lastSnapshot {
                 if let session = snap.session { UsageBarView(window: session, now: now) }

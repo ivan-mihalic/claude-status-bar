@@ -40,7 +40,8 @@ public final class AppEnvironment {
             tokenStore: tokenStore, opener: SystemBrowserOpener())
 
         self.accountManager = AccountManager(appState: appState, login: login, tokenStore: tokenStore,
-                                             snapshotStore: snapStore)
+                                             snapshotStore: snapStore,
+                                             claudeValidation: ClaudeTokenValidation(usage: UsageAPIClient(http: http), clock: clock))
         self.syncCoordinator = SyncCoordinator(
             appState: appState,
             engine: AccountSyncEngine(

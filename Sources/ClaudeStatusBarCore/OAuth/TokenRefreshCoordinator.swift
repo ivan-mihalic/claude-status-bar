@@ -24,7 +24,7 @@ public actor TokenRefreshCoordinator {
     /// Tokens the server has already rotated but the store refused to keep. Held so the
     /// next attempt presents the *new* refresh token (the old one is spent) and retries
     /// the write, instead of walking into `invalid_grant`.
-    private var unpersisted: [UUID: TokenBundle] = [:]
+    private var unpersisted: [UUID: (previous: TokenBundle, refreshed: TokenBundle)] = [:]
 
     public init(oauth: OAuthClient, store: TokenStore) {
         self.oauth = oauth; self.store = store
@@ -34,8 +34,9 @@ public actor TokenRefreshCoordinator {
     /// still waiting to be written.
     public func current(_ id: UUID) throws -> TokenBundle? {
         if let pending = unpersisted[id] {
-            persist(pending, for: id)
-            return pending
+            do { return try commit(pending.refreshed, for: id, matching: pending.previous) }
+            catch Failure.rejected { return nil }
+            catch { throw Failure.storeFailed("couldn't save the refreshed token") }
         }
         do { return try store.load(id) }
         catch {
@@ -57,38 +58,47 @@ public actor TokenRefreshCoordinator {
             return try await running.value      // join; never spend the token twice
         }
         // Someone finished a refresh while this caller was still holding an old bundle.
-        if let fresh = try current(id), fresh.accessToken != stale.accessToken {
+        if let fresh = try current(id), fresh != stale {
             return fresh
         }
-        let task = Task<TokenBundle, Error> { [oauth] in
-            do { return try await oauth.refresh(stale) }
-            catch OAuthError.invalidGrant { throw Failure.rejected }
-            catch { throw Failure.unreachable }
+        let task = Task<TokenBundle, Error> {
+            try await self.performRefresh(stale, for: id)
         }
         inFlight[id] = task
         defer { inFlight[id] = nil }
-
-        let refreshed = try await task.value
-        // Během síťového await mohl uživatel vložit token nebo se znovu přihlásit.
-        // Opožděná odpověď starého grantu nesmí přepsat nové přihlášení.
-        if let fresh = try? store.load(id), fresh != stale {
-            return fresh
-        }
-        guard persist(refreshed, for: id) else {
-            unpersisted[id] = refreshed
-            throw Failure.storeFailed("couldn't save the refreshed token")
-        }
-        return refreshed
+        return try await task.value
     }
 
-    @discardableResult
-    private func persist(_ bundle: TokenBundle, for id: UUID) -> Bool {
-        do {
-            try store.save(bundle, for: id)
-            unpersisted[id] = nil
-            return true
-        } catch {
-            return false
+    private func performRefresh(_ stale: TokenBundle, for id: UUID) async throws -> TokenBundle {
+        let refreshed: TokenBundle
+        do { refreshed = try await oauth.refresh(stale) }
+        catch {
+            let current: TokenBundle?
+            do { current = try store.load(id) }
+            catch { throw Failure.storeFailed("couldn't read stored credentials after refresh") }
+            if let current, current != stale { return current }
+            if error as? OAuthError == .invalidGrant { throw Failure.rejected }
+            throw Failure.unreachable
         }
+
+        do { return try commit(refreshed, for: id, matching: stale) }
+        catch Failure.rejected { throw Failure.rejected }
+        catch {
+            unpersisted[id] = (stale, refreshed)
+            throw Failure.storeFailed("couldn't save the refreshed token")
+        }
+    }
+
+    private func commit(_ bundle: TokenBundle, for id: UUID,
+                        matching previous: TokenBundle) throws -> TokenBundle {
+        if try store.replace(bundle, for: id, matching: previous) {
+            unpersisted[id] = nil
+            return bundle
+        }
+        // Atomické přepsání selhalo kvůli novému importu nebo odstranění účtu.
+        let current = try store.load(id)
+        unpersisted[id] = nil
+        guard let current else { throw Failure.rejected }
+        return current
     }
 }
