@@ -35,6 +35,15 @@ private func dto(_ name: String) throws -> UsageResponseDTO {
     }
 }
 
+@Test func normalize_noSessionWindow_keepsWeeklyWindows() throws {
+    // Účty bez 5h limitu (Ultra) posílají five_hour: null; sync nesmí spadnout.
+    let snap = try UsageAdapter.normalize(dto("usage_no_session"),
+                                          fetchedAt: .init(timeIntervalSince1970: 0))
+    #expect(snap.session == nil)
+    #expect(snap.weekAll?.utilization == 13.0)
+    #expect(snap.weekPremium.map(\.key) == ["seven_day_sonnet"])
+}
+
 @Test func label_titleCasesMultiWordModel() {
     #expect(UsageAdapter.label(forKey: "seven_day_claude_opus_4") == "Week (Claude Opus 4)")
 }

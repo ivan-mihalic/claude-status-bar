@@ -27,8 +27,9 @@ public enum UsageAdapter {
             return UsageWindow(key: key, label: label(forKey: key),
                                utilization: w.utilization, resetsAt: w.resetsAt)
         }
-        guard let session = window("five_hour"),
-              let weekAll = window("seven_day") else {
+        // five_hour je volitelné: účty bez 5h limitu (Ultra) ho posílají jako null.
+        let session = window("five_hour")
+        guard let weekAll = window("seven_day") else {
             throw UsageAdapterError.missingCoreWindows
         }
         let premium = dto.windows.keys
