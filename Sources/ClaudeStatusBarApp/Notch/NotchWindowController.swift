@@ -74,6 +74,9 @@ public final class NotchWindowController {
     /// another app, a display waking up. Without it a missed exit leaves the panel open for
     /// good, which is a worse failure than half a wakeup per second while hovering.
     private var openWatchdog: Timer?
+    /// Ring count the windows were sized for. The open window is built once from it, so a
+    /// different live count means the windows are too small and must be rebuilt.
+    private var builtRingCount = 0
 
     private var enabled = false
     private var placement: NotchPlacement = .topCenter
@@ -154,10 +157,11 @@ public final class NotchWindowController {
         build()
     }
 
-    /// The resting panel is sized from the visible ring count whenever it shows its rings, so
-    /// adding, removing or hiding an account changes the windows themselves.
+    /// The open window is sized from the visible ring count, so adding, removing or hiding an
+    /// account changes the windows themselves. This applies even when the rings are hidden at
+    /// rest: the resting size does not depend on the count, but the expanded one does.
     public func accountsChanged() {
-        guard enabled, instances.contains(where: { $0.layout.showsRingsAtRest }) else { return }
+        guard enabled, ringCount != builtRingCount else { return }
         rebuild()
     }
 
@@ -188,6 +192,7 @@ public final class NotchWindowController {
     // MARK: Lifecycle
 
     private func build() {
+        builtRingCount = ringCount
         for screen in NotchScreens.screens(for: display) {
             let layout = NotchGeometry.layout(for: NotchGeometry.metrics(of: screen),
                                               placement: placement,
