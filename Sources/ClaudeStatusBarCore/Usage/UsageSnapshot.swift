@@ -14,7 +14,8 @@ public struct UsageWindow: Codable, Equatable, Sendable {
 
 public struct UsageSnapshot: Codable, Equatable, Sendable {
     /// Providers can expose either, both, or neither named window. Claude always supplies
-    /// both; Codex legitimately returns only a weekly window for some subscriptions.
+    /// the weekly window and drops the session one for accounts without a 5-hour limit;
+    /// Codex legitimately returns only a weekly window for some subscriptions.
     public let session: UsageWindow?
     public let weekAll: UsageWindow?
     public let weekPremium: [UsageWindow]
