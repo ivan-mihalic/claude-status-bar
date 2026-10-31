@@ -20,37 +20,30 @@ public struct OAuthClient: Sendable {
         self.config = config; self.clock = clock
     }
 
-    public func exchange(code: String, verifier: String, state: String,
-                         clientSecret: String? = nil) async throws -> TokenBundle {
+    public func exchange(code: String, verifier: String,
+                         state: String) async throws -> TokenBundle {
         try await exchange(code: code, verifier: verifier,
-                           redirectURI: config.redirectURI, state: state,
-                           clientSecret: clientSecret)
+                           redirectURI: config.redirectURI, state: state)
     }
 
-    /// `clientSecret` only for providers that need one (Google); it is carried into the
-    /// returned bundle so every later refresh can present it again.
     public func exchange(code: String, verifier: String, redirectURI: String,
-                         state: String? = nil, clientSecret: String? = nil) async throws -> TokenBundle {
-        try await perform(previousRefreshToken: "", previousAccountID: nil,
-                          clientSecret: clientSecret) { host in
+                         state: String? = nil) async throws -> TokenBundle {
+        try await perform(previousRefreshToken: "", previousAccountID: nil) { host in
             OAuthRequests.exchange(tokenURL: host, config: config,
                                    code: code, verifier: verifier, state: state,
-                                   redirectURI: redirectURI, clientSecret: clientSecret)
+                                   redirectURI: redirectURI)
         }
     }
 
     public func refresh(_ bundle: TokenBundle) async throws -> TokenBundle {
         try await perform(previousRefreshToken: bundle.refreshToken,
-                          previousAccountID: bundle.accountID,
-                          clientSecret: bundle.clientSecret) { host in
+                          previousAccountID: bundle.accountID) { host in
             OAuthRequests.refresh(tokenURL: host, config: config,
-                                  refreshToken: bundle.refreshToken,
-                                  clientSecret: bundle.clientSecret)
+                                  refreshToken: bundle.refreshToken)
         }
     }
 
     private func perform(previousRefreshToken: String, previousAccountID: String?,
-                         clientSecret: String?,
                          _ build: (URL) -> URLRequest) async throws -> TokenBundle {
         var lastError: OAuthError = .allHostsFailed
         for host in endpoints.tokenHosts {
@@ -66,10 +59,8 @@ public struct OAuthClient: Sendable {
             case 200:
                 do {
                     let tr = try JSONDecoder().decode(TokenResponse.self, from: resp.body)
-                    var bundle = tr.bundle(now: clock.now(), previousRefreshToken: previousRefreshToken,
-                                           previousAccountID: previousAccountID)
-                    bundle.clientSecret = clientSecret
-                    return bundle
+                    return tr.bundle(now: clock.now(), previousRefreshToken: previousRefreshToken,
+                                     previousAccountID: previousAccountID)
                 } catch { throw OAuthError.decoding }
             case 400:
                 // RFC 6749 §5.2 puts `invalid_request`, `invalid_client` and

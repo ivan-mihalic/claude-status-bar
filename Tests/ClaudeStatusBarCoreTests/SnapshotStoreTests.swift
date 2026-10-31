@@ -81,3 +81,24 @@ import Foundation
     #expect(try store.save([acct]) == true)
     #expect(try store.load() == [acct])
 }
+
+// Reprodukce: 0.12.0–0.12.1 uměly Antigravity účty. Po odebrání provideru nesmí jeden
+// takový účet v accounts.json shodit načtení všech ostatních — další uložení by je smazalo.
+@Test func load_skipsAccountsOfAProviderThisVersionNoLongerKnows() throws {
+    let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("csb-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    let store = SnapshotStore(fileURL: tmp)
+    let kept = Account(id: UUID(), label: "work@example.com", accountUuid: nil,
+                       syncInterval: 300, status: .ok, lastSnapshot: nil, lastSyncedAt: nil,
+                       provider: .codex)
+    try store.save([kept])
+    var json = try JSONSerialization.jsonObject(with: Data(contentsOf: tmp)) as! [[String: Any]]
+    var removed = json[0]
+    removed["id"] = UUID().uuidString
+    removed["provider"] = "antigravity"
+    json.append(removed)
+    try JSONSerialization.data(withJSONObject: json).write(to: tmp)
+
+    #expect(try SnapshotStore(fileURL: tmp).load() == [kept])
+}

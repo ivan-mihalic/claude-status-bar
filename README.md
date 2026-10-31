@@ -1,17 +1,15 @@
 # Claude Status Bar
 
-A native macOS **menu-bar app that tracks Claude, Codex and Google Antigravity subscription usage across
+A native macOS **menu-bar app that tracks Claude and Codex subscription usage across
 multiple accounts at once** — the same limit windows their coding clients show, but for every
 account you connect, always visible in your menu bar.
 
-- **Multi-account and multi-provider.** Connect as many Claude, Codex and Antigravity accounts
-  as you like. Claude účty používají browser OAuth s automatickou obnovou; Codex podporuje
-  přihlášení přes browser callback nebo device code; Antigravity přihlášení Google účtem
-  přes browser callback.
+- **Multi-account and multi-provider.** Connect as many Claude and Codex accounts as you
+  like. Claude účty používají browser OAuth s automatickou obnovou; Codex podporuje
+  přihlášení přes browser callback nebo device code.
 - **The usage windows each provider actually reports.** Claude normally exposes a current
   5-hour **session**, current **week (all models)**, and current **week (premium model)**.
-  Codex exposes its available 5-hour and/or weekly subscription limits. Antigravity reports
-  remaining quota per model family (Claude, Gemini Pro, Gemini Flash). Every available
+  Codex exposes its available 5-hour and/or weekly subscription limits. Every available
   window gets a progress bar, percentage, and reset countdown.
 - **Menu-bar widget** with a color-coded gauge (green / amber / red by how close you are to
   a limit). Optionally show every account's percentages right in the menu bar, with a short
@@ -78,7 +76,6 @@ full signing/sandbox/network/data-storage rundown.
 |---|---|---|
 | **Claude** | browser OAuth | session, weekly and per-model windows |
 | **Codex** (ChatGPT plan) | browser callback or device code | whichever 5-hour and/or weekly Codex windows the subscription reports |
-| **Antigravity** (Google account) | browser callback | used quota and refill time for the Claude, Gemini Pro and Gemini Flash model families |
 | **Cursor** | *not available* | Cursor exposes no usage API — its limits live only in the web dashboard |
 
 Claude and Codex accounts are independent: each OAuth grant is stored under its own account in
@@ -88,21 +85,11 @@ Codex usage requests are routed to the account or workspace identified by the si
 token. Some subscriptions return only one active limit window; the app shows that window
 instead of treating the absent second window as a failed sync.
 
-Antigravity sign-in uses Google OAuth with Antigravity's own desktop client and a short-lived
-listener at `http://localhost:51121/oauth-callback`. Google also requires the Antigravity OAuth
-client secret (`GOCSPX-…`) on every token request; the app does not ship it, so you paste it
-once when adding the account (it is published e.g. in `src/constants.ts` of
-[opencode-antigravity-auth](https://github.com/NoeFabris/opencode-antigravity-auth)) and it is
-kept in the Keychain with that account's tokens. Quota comes from the same Google Cloud Code
-endpoints the Antigravity app uses (`loadCodeAssist` + `fetchAvailableModels`); these are
-internal, undocumented APIs and may change without notice.
-
 ### Add an account
 1. Click the **gauge icon** → **Add Account…**.
-2. Choose **Claude**, **Codex** or **Antigravity**. For Codex, also choose **Browser** or **Device code**.
+2. Choose **Claude** or **Codex**. For Codex, also choose **Browser** or **Device code**.
 3. Claude otevře browser OAuth a požádá o autorizační kód z callback stránky.
-   Codex dokončí browser callback nebo device code; Antigravity si nejdřív vyžádá OAuth client
-   secret, pak dokončí browser callback po přihlášení Google účtem.
+   Codex dokončí browser callback nebo device code.
    Případné oprávnění k vlastnímu Keychain potvrď v systémovém dialogu.
 4. Within one sync cycle the account appears with its usage bars, and the menu-bar gauge
    reflects your most-constrained limit across all accounts.

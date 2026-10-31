@@ -7,14 +7,10 @@ public struct PendingLogin: Sendable {
     public let state: String
     public let authorizeURL: URL
     public let provider: Provider
-    /// User-entered OAuth client secret (Antigravity only); nil for other providers.
-    public let clientSecret: String?
 
-    public init(pkce: PKCE, state: String, authorizeURL: URL, provider: Provider = .claude,
-                clientSecret: String? = nil) {
+    public init(pkce: PKCE, state: String, authorizeURL: URL, provider: Provider = .claude) {
         self.pkce = pkce; self.state = state
         self.authorizeURL = authorizeURL; self.provider = provider
-        self.clientSecret = clientSecret
     }
 }
 
@@ -36,7 +32,7 @@ extension LoginError: LocalizedError {
         case .invalidCode: return "Paste the authorization code shown after browser sign-in."
         case .stateMismatch: return "The sign-in response did not match this login attempt."
         case .callbackPortBusy(let port):
-            return "Port \(port) is already in use. Close another sign-in (e.g. `codex login`) and try again."
+            return "Port \(port) is already in use. Close another Codex login and try again."
         case .cancelled(let reason): return "Sign-in was cancelled: \(reason)"
         case .timedOut: return "Sign-in did not finish within five minutes."
         }
@@ -76,7 +72,7 @@ public struct OAuthLoginService {
 
     public func backend(for provider: Provider) -> LoginBackend? { backends[provider] }
 
-    public func begin(provider: Provider = .claude, clientSecret: String? = nil) -> PendingLogin? {
+    public func begin(provider: Provider = .claude) -> PendingLogin? {
         guard let backend = backends[provider] else { return nil }
         let pkce = PKCE.generate()
         let state = PKCE.generate().verifier          // reuse CSPRNG for an opaque state
@@ -86,8 +82,7 @@ public struct OAuthLoginService {
         if URL(string: backend.config.redirectURI)?.host != "localhost" {
             opener.open(url)
         }
-        return PendingLogin(pkce: pkce, state: state, authorizeURL: url, provider: provider,
-                            clientSecret: clientSecret)
+        return PendingLogin(pkce: pkce, state: state, authorizeURL: url, provider: provider)
     }
 
     public func beginDeviceCode(provider: Provider) async throws -> DeviceCodeLogin {
@@ -134,8 +129,7 @@ public struct OAuthLoginService {
         }
         let bundle = try await backend.oauth.exchange(code: callback.code,
                                                      verifier: pending.pkce.verifier,
-                                                     state: pending.state,
-                                                     clientSecret: pending.clientSecret)
+                                                     state: pending.state)
         try Task.checkCancellation()
         if persist { try tokenStore.save(bundle, for: accountID) }
         return bundle
