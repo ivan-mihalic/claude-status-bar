@@ -17,6 +17,7 @@ public struct AddAccountView: View {
     @State private var provider: Provider = .claude
     @State private var codexLoginMethod: CodexLoginMethod = .browser
     @State private var code = ""
+    @State private var clientSecret = ""
     @State private var pending: PendingLogin?
     @State private var deviceLogin: DeviceCodeLogin?
     @State private var loginTask: Task<Void, Never>?
@@ -73,6 +74,11 @@ public struct AddAccountView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+            if effectiveProvider == .antigravity, deviceLogin == nil, pending == nil {
+                SecureField("Antigravity OAuth client secret", text: $clientSecret)
+                Text("Google requires the Antigravity OAuth client secret (GOCSPX-…), which this app does not ship. It is stored only in your Keychain with this account. Then Google opens in your browser and returns here automatically.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if effectiveProvider == .claude {
                 Text("Sign in once in your browser. This app keeps its own credentials in macOS Keychain and renews them automatically. Temporary sync errors keep your sign-in.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -94,7 +100,7 @@ public struct AddAccountView: View {
             } else if pending == nil {
                 Button("Sign in with \(effectiveProvider.title)…") { start() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!effectiveProvider.isSupported || connecting)
+                    .disabled(!effectiveProvider.isSupported || connecting || missingClientSecret)
             } else if pending?.provider == .claude {
                 Text("After signing in, copy the authorization code from the callback page and paste it here.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -109,7 +115,7 @@ public struct AddAccountView: View {
                 .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || connecting)
                 Button("Cancel") { resetLogin() }
             } else {
-                // Codex redirects to a local address instead of showing a code, so there is
+                // Codex and Antigravity redirect to a local address instead of showing a code, so there is
                 // nothing to paste — the app is waiting for the browser to come back.
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -129,6 +135,14 @@ public struct AddAccountView: View {
         reauthAccount?.effectiveProvider ?? provider
     }
 
+    private var trimmedClientSecret: String {
+        clientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var missingClientSecret: Bool {
+        effectiveProvider == .antigravity && trimmedClientSecret.isEmpty
+    }
+
     private func start() {
         error = nil
         let target = reauthAccount?.effectiveProvider ?? provider
@@ -138,7 +152,8 @@ public struct AddAccountView: View {
             loginTask = Task { await connectDeviceCode(provider: target, attempt: attempt) }
             return
         }
-        guard let started = env.accountManager.beginLogin(provider: target) else {
+        let secret = target == .antigravity ? trimmedClientSecret : nil
+        guard let started = env.accountManager.beginLogin(provider: target, clientSecret: secret) else {
             error = target.unsupportedReason ?? "\(target.title) sign-in isn't available."
             return
         }
@@ -212,7 +227,7 @@ public struct AddAccountView: View {
     private func finishSuccessfully() {
         env.syncCoordinator.start()
         loginTask = nil; pending = nil; deviceLogin = nil
-        code = ""; label = ""; error = nil
+        code = ""; clientSecret = ""; label = ""; error = nil
         router.show(.dashboard)
     }
 

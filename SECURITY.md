@@ -48,7 +48,7 @@ four entitlements — nothing else is requested:
    items and preventing it from reading another app's items (including Claude Code's own
    token).
 2. **`com.apple.security.network.client`** — allows outgoing network *client* connections.
-   This is what lets the app reach the Anthropic usage API, the Codex usage API, the OAuth
+   This is what lets the app reach the Anthropic usage API, the Codex usage API, Google's Cloud Code quota API, the OAuth
    token hosts, and Sparkle's appcast/update download — see
    [Network endpoints](#network-endpoints-contacted) below.
 3. **`com.apple.security.network.server`** — added in 0.6.0 for **one** purpose: signing in to
@@ -58,6 +58,8 @@ four entitlements — nothing else is requested:
    (`LoopbackCallbackServer`) is bound to the **loopback interface** (`requiredInterfaceType =
    .loopback`), is started only when a Codex sign-in begins, answers a single request, and is
    torn down as soon as the code arrives, the attempt is cancelled, or it times out (5 minutes).
+   Antigravity sign-in (added in 0.12.0) uses the same listener on
+   `http://localhost:51121/oauth-callback`, with the same lifetime rules.
    It is never running at rest and is not used by Claude browser sign-in. If you only use Claude accounts, nothing in the app ever opens
    a socket to listen on.
 4. **`com.apple.security.temporary-exception.mach-lookup.global-name`**, scoped to exactly two
@@ -130,6 +132,19 @@ covered by the same `network.client` entitlement.
   value contained in that signed token; the response carries the account's rate-limit windows.
 
 No Codex traffic happens unless you choose Codex while adding or reconnecting an account.
+
+**Antigravity accounts** (optional, only if you add one) additionally contact:
+
+- `https://accounts.google.com/o/oauth2/v2/auth` and `https://oauth2.googleapis.com/token` —
+  Google sign-in and token exchange/refresh with Antigravity's desktop OAuth client and PKCE.
+  Google requires that installed-app client's `client_secret` on the token request. The app
+  does **not** ship it: you enter it when adding the account, and it is stored only in the
+  Keychain item holding that account's tokens.
+- `https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist` and
+  `/v1internal:fetchAvailableModels` — resolves the account's Cloud Code project and reads the
+  remaining quota per model. Only the bearer token and the project id are sent.
+
+No Google traffic happens unless you choose Antigravity while adding or reconnecting an account.
 
 ## Where your data lives
 

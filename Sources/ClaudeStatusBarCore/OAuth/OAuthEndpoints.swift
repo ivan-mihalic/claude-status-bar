@@ -22,6 +22,11 @@ public struct OAuthEndpoints: Sendable {
         tokenHosts: [URL(string: "https://auth.openai.com/oauth/token")!]
     )
 
+    public static let google = OAuthEndpoints(
+        authorizeBase: URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!,
+        tokenHosts: [URL(string: "https://oauth2.googleapis.com/token")!]
+    )
+
     public func authorizeURL(config: OAuthConfig, pkce: PKCE, state: String) -> URL {
         var comps = URLComponents(url: authorizeBase, resolvingAgainstBaseURL: false)!
         var items: [URLQueryItem] = [

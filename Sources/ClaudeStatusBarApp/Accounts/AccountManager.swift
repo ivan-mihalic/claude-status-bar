@@ -35,8 +35,8 @@ public final class AccountManager {
     /// up to the point where the exchanged token is filed under an account id.
     /// `nil` when the app has no sign-in flow for that provider — a placeholder in the
     /// `Provider` list, not a failure worth an error dialog.
-    public func beginLogin(provider: Provider = .claude) -> PendingLogin? {
-        login.begin(provider: provider)
+    public func beginLogin(provider: Provider = .claude, clientSecret: String? = nil) -> PendingLogin? {
+        login.begin(provider: provider, clientSecret: clientSecret)
     }
 
     /// Finishes a loopback sign-in (Codex) and files the account.

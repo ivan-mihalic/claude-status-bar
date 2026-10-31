@@ -9,12 +9,17 @@ public struct TokenBundle: Codable, Equatable, Sendable {
     /// ChatGPT workspace/account used to route Codex backend requests. Optional so token
     /// bundles saved before Codex support continue to decode.
     public var accountID: String?
+    /// OAuth client secret the user entered for a provider that requires one (Google
+    /// Antigravity). Kept with the grant in the Keychain because every refresh needs it;
+    /// never part of the source code. Optional so older bundles still decode.
+    public var clientSecret: String?
 
     public init(accessToken: String, refreshToken: String,
-                expiresAt: Date, scopes: [String], accountID: String? = nil) {
+                expiresAt: Date, scopes: [String], accountID: String? = nil,
+                clientSecret: String? = nil) {
         self.accessToken = accessToken; self.refreshToken = refreshToken
         self.expiresAt = expiresAt; self.scopes = scopes
-        self.accountID = accountID
+        self.accountID = accountID; self.clientSecret = clientSecret
     }
 
     public func isExpiring(within seconds: TimeInterval, now: Date) -> Bool {

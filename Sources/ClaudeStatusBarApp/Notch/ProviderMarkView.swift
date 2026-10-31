@@ -6,7 +6,7 @@ import ClaudeStatusBarCore
 ///
 /// These are drawn, not bundled. Shipping a company's actual logo file inside a public repo
 /// is a trademark question rather than a technical one, so each mark here is a simple,
-/// recognisable geometric stand-in: a burst, a chat glyph, a cube. If real artwork is ever
+/// recognisable geometric stand-in: a burst, a knot, an arch, a cube. If real artwork is ever
 /// licensed, only this view changes — everything else asks for a `Provider`.
 public struct ProviderMarkView: View {
     let provider: Provider
@@ -20,6 +20,7 @@ public struct ProviderMarkView: View {
         switch provider {
         case .claude: return Color(red: 0.85, green: 0.42, blue: 0.24)   // warm ochre
         case .codex:  return Color(white: 0.92)
+        case .antigravity: return Color(red: 0.36, green: 0.62, blue: 0.98)   // Google blue
         case .cursor: return Color(red: 0.55, green: 0.62, blue: 0.95)
         }
     }
@@ -38,6 +39,8 @@ public struct ProviderMarkView: View {
         switch provider {
         case .claude: Burst(spokes: 8).stroke(tint, lineWidth: max(diameter * 0.07, 1))
         case .codex:  CodexKnot(tint: tint, lineWidth: max(diameter * 0.065, 0.8))
+        case .antigravity: Arch().stroke(tint, style: StrokeStyle(lineWidth: max(diameter * 0.08, 1),
+                                                                  lineCap: .round, lineJoin: .round))
         case .cursor: Cube().stroke(tint, style: StrokeStyle(lineWidth: max(diameter * 0.07, 1),
                                                              lineJoin: .round))
         }
@@ -101,6 +104,19 @@ struct Cube: Shape {
         path.move(to: top); path.addLine(to: centre)
         path.move(to: centre); path.addLine(to: midLeft)
         path.move(to: centre); path.addLine(to: midRight)
+        return path
+    }
+}
+
+/// A rounded arch, standing in for Antigravity's "A".
+struct Arch: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width, h = rect.height
+        path.move(to: CGPoint(x: rect.minX + w * 0.08, y: rect.maxY))
+        path.addCurve(to: CGPoint(x: rect.maxX - w * 0.08, y: rect.maxY),
+                      control1: CGPoint(x: rect.minX + w * 0.28, y: rect.minY - h * 0.25),
+                      control2: CGPoint(x: rect.maxX - w * 0.28, y: rect.minY - h * 0.25))
         return path
     }
 }
