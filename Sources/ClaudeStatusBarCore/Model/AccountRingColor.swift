@@ -19,6 +19,7 @@ public struct AccountRingColor: Codable, Equatable, Sendable {
         switch provider {
         case .claude: return AccountRingColor(red: 0.85, green: 0.42, blue: 0.24)
         case .codex:  return AccountRingColor(red: 0.20, green: 0.78, blue: 0.65)
+        case .antigravity: return AccountRingColor(red: 0.36, green: 0.62, blue: 0.98)
         case .cursor: return AccountRingColor(red: 0.55, green: 0.62, blue: 0.95)
         }
     }

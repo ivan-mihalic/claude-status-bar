@@ -23,7 +23,8 @@ public enum OAuthRequests {
 
     public static func exchange(tokenURL: URL, config: OAuthConfig,
                                 code: String, verifier: String,
-                                state: String?, redirectURI: String? = nil) -> URLRequest {
+                                state: String?, redirectURI: String? = nil,
+                                clientSecret: String? = nil) -> URLRequest {
         var pairs = [
             ("grant_type", "authorization_code"),
             ("code", code),
@@ -31,16 +32,19 @@ public enum OAuthRequests {
             ("client_id", config.clientID),
             ("code_verifier", verifier),
         ]
+        if let clientSecret { pairs.append(("client_secret", clientSecret)) }
         if let state { pairs.append(("state", state)) }
         return post(tokenURL, pairs)
     }
 
     public static func refresh(tokenURL: URL, config: OAuthConfig,
-                               refreshToken: String) -> URLRequest {
-        post(tokenURL, [
+                               refreshToken: String, clientSecret: String? = nil) -> URLRequest {
+        var pairs = [
             ("grant_type", "refresh_token"),
             ("refresh_token", refreshToken),
             ("client_id", config.clientID),
-        ])
+        ]
+        if let clientSecret { pairs.append(("client_secret", clientSecret)) }
+        return post(tokenURL, pairs)
     }
 }
