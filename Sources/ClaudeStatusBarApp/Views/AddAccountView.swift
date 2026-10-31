@@ -76,8 +76,11 @@ public struct AddAccountView: View {
             }
             if effectiveProvider == .antigravity, deviceLogin == nil, pending == nil {
                 SecureField("Antigravity OAuth client secret", text: $clientSecret)
-                Text("Google requires the Antigravity OAuth client secret (GOCSPX-…), which this app does not ship. It is stored only in your Keychain with this account. Then Google opens in your browser and returns here automatically.")
+                Text("Google requires the Antigravity OAuth client secret (GOCSPX-…), which this app does not ship. Copy the value of ANTIGRAVITY_CLIENT_SECRET from the open-source Antigravity integration linked below. It is stored only in your Keychain with this account. Then Google opens in your browser and returns here automatically.")
                     .font(.caption).foregroundStyle(.secondary)
+                Link("Where to find the client secret (ANTIGRAVITY_CLIENT_SECRET)",
+                     destination: URL(string: "https://github.com/NoeFabris/opencode-antigravity-auth/blob/main/src/constants.ts")!)
+                    .font(.caption)
             }
             if effectiveProvider == .claude {
                 Text("Sign in once in your browser. This app keeps its own credentials in macOS Keychain and renews them automatically. Temporary sync errors keep your sign-in.")
