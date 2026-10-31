@@ -35,27 +35,4 @@ public struct OAuthConfig: Equatable, Sendable {
             "originator": "codex_cli_rs",
         ]
     )
-
-    /// Google Antigravity's own desktop OAuth client. Google lets an installed-app client
-    /// redirect to any loopback port, so the redirect below is the one the open-source
-    /// Antigravity integrations use. `access_type=offline` + `prompt=consent` are what make
-    /// Google issue a refresh token at all. Values verified on 2026-10-31 against
-    /// opencode-antigravity-auth (src/constants.ts, src/antigravity/oauth.ts).
-    ///
-    /// Google's token endpoint also demands the client's `client_secret`. It is deliberately
-    /// not in this repository: the user enters it when adding the account and it is kept
-    /// with that account's tokens in the Keychain (`TokenBundle.clientSecret`).
-    public static let antigravity = OAuthConfig(
-        clientID: "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
-        scopes: ["https://www.googleapis.com/auth/cloud-platform",
-                 "https://www.googleapis.com/auth/userinfo.email",
-                 "https://www.googleapis.com/auth/userinfo.profile",
-                 "https://www.googleapis.com/auth/cclog",
-                 "https://www.googleapis.com/auth/experimentsandconfigs"],
-        redirectURI: "http://localhost:51121/oauth-callback",
-        authorizeParameters: [
-            "access_type": "offline",
-            "prompt": "consent",
-        ]
-    )
 }

@@ -3,11 +3,10 @@ import Foundation
 
 /// The service an account belongs to.
 ///
-/// Claude, Codex and Google Antigravity accounts can be signed in independently.
+/// Both Claude and Codex subscription accounts can be signed in independently.
 public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
     case claude
     case codex
-    case antigravity
     case cursor
 
     public var id: String { rawValue }
@@ -16,7 +15,6 @@ public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
         switch self {
         case .claude: return "Claude"
         case .codex:  return "Codex"
-        case .antigravity: return "Antigravity"
         case .cursor: return "Cursor"
         }
     }
@@ -27,7 +25,7 @@ public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
     /// usage endpoint at all, and the numbers live only in the web dashboard behind a
     /// session cookie. Scraping that would break silently and then show stale figures,
     /// which is worse than not offering it.
-    public var isSupported: Bool { self != .cursor }
+    public var isSupported: Bool { self == .claude || self == .codex }
 
     /// The providers actually offered when adding an account.
     public static var selectableCases: [Provider] { allCases.filter(\.isSupported) }
@@ -37,7 +35,6 @@ public enum Provider: String, Codable, Sendable, CaseIterable, Identifiable {
         switch self {
         case .claude: return nil
         case .codex: return nil
-        case .antigravity: return nil
         case .cursor:
             return "Cursor has no usage API - its limits are only visible in the web dashboard."
         }

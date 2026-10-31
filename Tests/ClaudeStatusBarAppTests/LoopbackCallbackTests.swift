@@ -70,8 +70,8 @@ private let path = "/auth/callback"
 
 // MARK: What is actually on offer
 
-@Test func claudeCodexAndAntigravityAreOffered() {
-    #expect(Provider.selectableCases == [.claude, .codex, .antigravity])
+@Test func claudeAndCodexAreOffered() {
+    #expect(Provider.selectableCases == [.claude, .codex])
     #expect(Provider.codex.isSupported)
     #expect(Provider.cursor.isSupported == false)
     // Every disabled provider must be able to say why; a greyed-out row with no reason is

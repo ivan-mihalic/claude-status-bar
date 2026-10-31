@@ -29,7 +29,6 @@ public final class AppEnvironment {
         let anthropic = OAuthClient(http: http, endpoints: .production,
                                     config: .claudeCode, clock: clock)
         let openAI = OAuthClient(http: http, endpoints: .openAI, config: .codex, clock: clock)
-        let google = OAuthClient(http: http, endpoints: .google, config: .antigravity, clock: clock)
 
         let login = OAuthLoginService(
             backends: [
@@ -37,7 +36,6 @@ public final class AppEnvironment {
                 .codex:  LoginBackend(
                     oauth: openAI, endpoints: .openAI, config: .codex,
                     deviceCode: DeviceCodeAuthClient(http: http, oauth: openAI, config: .codex)),
-                .antigravity: LoginBackend(oauth: google, endpoints: .google, config: .antigravity),
             ],
             tokenStore: tokenStore, opener: SystemBrowserOpener())
 
@@ -51,8 +49,6 @@ public final class AppEnvironment {
                                              usage: UsageAPIClient(http: http)),
                     .codex:  ProviderBackend(tokenStore: tokenStore, oauth: openAI,
                                              usage: CodexUsageAPIClient(http: http)),
-                    .antigravity: ProviderBackend(tokenStore: tokenStore, oauth: google,
-                                                  usage: AntigravityUsageAPIClient(http: http)),
                 ],
                 clock: clock),
             clock: clock, snapshotStore: snapStore)

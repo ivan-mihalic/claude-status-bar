@@ -15,7 +15,7 @@ struct WelcomeView: View {
 
             Text("Welcome to Claude Status Bar").font(.title2.weight(.semibold))
 
-            Text("Claude Status Bar lives in your menu bar and tracks Claude, Codex and Antigravity subscription usage across one or more accounts, so you can see how close you are to a rate limit at a glance.")
+            Text("Claude Status Bar lives in your menu bar and tracks Claude and Codex subscription usage across one or more accounts, so you can see how close you are to a rate limit at a glance.")
                 .font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

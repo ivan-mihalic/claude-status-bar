@@ -26,7 +26,9 @@ public final class SnapshotStore {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
         let data = try Data(contentsOf: fileURL)
         let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
-        let accounts = try d.decode([Account].self, from: data)
+        // Po jednotlivých účtech: účet, který tahle verze neumí přečíst (např. Antigravity
+        // z 0.12.0–0.12.1), se vynechá, místo aby shodil načtení všech ostatních.
+        let accounts = try d.decode([LossyAccount].self, from: data).compactMap(\.account)
         // What was just read *is* what is on disk, so a save of the same thing is a no-op.
         lastWritten = data
         return accounts
@@ -53,4 +55,9 @@ public final class SnapshotStore {
         lastWritten = data
         return true
     }
+}
+
+private struct LossyAccount: Decodable {
+    let account: Account?
+    init(from decoder: Decoder) throws { account = try? Account(from: decoder) }
 }
